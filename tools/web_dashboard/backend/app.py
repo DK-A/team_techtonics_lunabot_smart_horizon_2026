@@ -1601,8 +1601,13 @@ def get_telemetry():
 
     # Instant Watchdog for Physical Raspberry Pi 4B Connection (Timeout: 3.5s)
     last_edge_time = getattr(telemetry_node, '_last_edge_health_time', 0.0)
-    is_frozen = getattr(telemetry_node, 'simulation_frozen', True)
-    edge_online = (not is_frozen) and ((now_t - last_edge_time) < 3.5) and (last_edge_time > 0.0)
+    edge_online = ((now_t - last_edge_time) < 3.5) and (last_edge_time > 0.0)
+    is_frozen = not edge_online
+    telemetry_node.simulation_frozen = is_frozen
+    if is_frozen:
+        telemetry_node.freeze_reason = "Awaiting physical Raspberry Pi 4B connection"
+    else:
+        telemetry_node.freeze_reason = "Raspberry Pi 4B online heartbeat received"
 
     # Trigger XAI alerts on connection state changes
     prev_online = getattr(telemetry_node, '_prev_edge_online', None)
@@ -2568,7 +2573,7 @@ HTML_PAGE = """<!DOCTYPE html>
   </header>
  
   <!-- ❄️ CRITICAL SIMULATION & ROVER HARDWARE FREEZE BANNER -->
-  <div id="v-freeze-banner" style="display:flex; justify-content:space-between; align-items:center; background: linear-gradient(90deg, rgba(255, 51, 75, 0.95), rgba(180, 20, 40, 0.95)); border: 1px solid #ff7b90; border-radius: 8px; padding: 10px 18px; margin-bottom: 12px; color: #fff; box-shadow: 0 4px 20px rgba(255, 51, 75, 0.4); animation: pulseGlow 1.8s infinite alternate;">
+  <div id="v-freeze-banner" style="display:none; justify-content:space-between; align-items:center; background: linear-gradient(90deg, rgba(255, 51, 75, 0.95), rgba(180, 20, 40, 0.95)); border: 1px solid #ff7b90; border-radius: 8px; padding: 10px 18px; margin-bottom: 12px; color: #fff; box-shadow: 0 4px 20px rgba(255, 51, 75, 0.4); animation: pulseGlow 1.8s infinite alternate;">
     <div style="display:flex; align-items:center; gap:12px;">
       <span style="font-size:1.4rem;">❄️</span>
       <div>
@@ -3162,7 +3167,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
         // 2. Dynamic Simulation Freeze & Resume Control (Instant visual feedback)
         try {
-          const isFrozen = (d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false;
+          const isFrozen = (d.edge_device && d.edge_device.online) ? false : ((d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false);
           window.isSimulationFrozen = isFrozen;
 
           const freezeBanner = document.getElementById('v-freeze-banner');

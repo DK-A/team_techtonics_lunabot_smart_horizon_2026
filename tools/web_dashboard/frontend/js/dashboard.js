@@ -327,7 +327,7 @@
 
         // 2. Dynamic Simulation Freeze & Resume Control (Instant visual feedback)
         try {
-          const isFrozen = (d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false;
+          const isFrozen = (d.edge_device && d.edge_device.online) ? false : ((d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false);
           window.isSimulationFrozen = isFrozen;
 
           const freezeBanner = document.getElementById('v-freeze-banner');
