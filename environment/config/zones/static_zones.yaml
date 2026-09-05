@@ -1,0 +1,146 @@
+# ==============================================================================
+# LUNABOT STATIC ZONE CONFIGURATION SCHEMA
+# Location: /home/dk05/Desktop/SMART_HORIZON/LUNA_PRO/environment/config/zones/static_zones.yaml
+# Extensible schema supporting Nav2 Costmaps & future Isolation Forest dynamic hazards
+# ==============================================================================
+
+version: "1.0"
+world_name: "moon"
+global_frame_id: "map"
+
+# ------------------------------------------------------------------------------
+# ZONE DEFINITIONS
+# ------------------------------------------------------------------------------
+zones:
+  # 1. BASE / START DOCKING ZONE
+  - zone_id: "base_docking_zone"
+    name: "LunaBot Base Station & Deployment Dock"
+    type: "BASE"
+    geometry_type: "BOX"
+    pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+      frame_id: "map"
+    dimensions:
+      size_x: 3.0
+      size_y: 3.0
+      size_z: 1.0
+    properties:
+      traversable: true
+      cost: 0                 # Free space (0 cost)
+      permanent: true
+      severity: "NONE"
+      hazard_type: "NONE"
+      timestamp: 0.0
+      expiration_seconds: -1.0
+      confidence_score: 1.0
+
+  # 2. SAFE / TRAVERSABLE EXPLORATION SECTOR
+  - zone_id: "safe_traversable_sector"
+    name: "Primary Lunar Habitat Exploration Sector"
+    type: "SAFE"
+    geometry_type: "BOX"
+    pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+      frame_id: "map"
+    dimensions:
+      size_x: 25.0
+      size_y: 25.0
+      size_z: 5.0
+    properties:
+      traversable: true
+      cost: 1                 # Low normal navigation cost
+      permanent: true
+      severity: "LOW"
+      hazard_type: "NONE"
+      timestamp: 0.0
+      expiration_seconds: -1.0
+      confidence_score: 1.0
+
+  # 3. STATIC NO-GO ZONE 1: NORTHERN BOULDER FIELD
+  - zone_id: "static_nogo_northern_boulder_field"
+    name: "Northern Dense Boulder Field (Restricted)"
+    type: "NO_GO"
+    geometry_type: "CYLINDER"
+    pose:
+      x: 6.0
+      y: 5.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+      frame_id: "map"
+    dimensions:
+      radius: 2.5
+      height: 2.0
+    properties:
+      traversable: false
+      cost: 254               # Lethal cost for Nav2 path rejection
+      permanent: true
+      severity: "HIGH"
+      hazard_type: "STATIC_OBSTACLE_FIELD"
+      timestamp: 0.0
+      expiration_seconds: -1.0
+      confidence_score: 1.0
+
+  # 4. STATIC NO-GO ZONE 2: SOUTHERN CRATER RIDGE
+  - zone_id: "static_nogo_southern_crater_ridge"
+    name: "Southern Deep Crater Ridge (Restricted)"
+    type: "NO_GO"
+    geometry_type: "CYLINDER"
+    pose:
+      x: -5.0
+      y: -6.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+      frame_id: "map"
+    dimensions:
+      radius: 3.0
+      height: 2.0
+    properties:
+      traversable: false
+      cost: 254               # Lethal cost for Nav2 path rejection
+      permanent: true
+      severity: "HIGH"
+      hazard_type: "STATIC_TERRAIN_HAZARD"
+      timestamp: 0.0
+      expiration_seconds: -1.0
+      confidence_score: 1.0
+
+  # 5. STATIC NO-GO ZONE 3: HABITAT INFRASTRUCTURE PERIMETER
+  - zone_id: "static_nogo_habitat_infrastructure"
+    name: "Habitat Structure Perimeter (Restricted)"
+    type: "NO_GO"
+    geometry_type: "BOX"
+    pose:
+      x: -8.0
+      y: 8.0
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+      frame_id: "map"
+    dimensions:
+      size_x: 4.0
+      size_y: 4.0
+      size_z: 3.0
+    properties:
+      traversable: false
+      cost: 254               # Lethal cost for Nav2 path rejection
+      permanent: true
+      severity: "CRITICAL"
+      hazard_type: "INFRASTRUCTURE_PROTECTION"
+      timestamp: 0.0
+      expiration_seconds: -1.0
+      confidence_score: 1.0

@@ -1,0 +1,760 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="lunabot">
+    <pose>0 0 0.0 0 0 0</pose>
+    <self_collide>false</self_collide>
+
+    <!-- BASE LINK (Chassis Body & Avionics Frame) -->
+    <link name="base_link">
+      <pose>0 0 0.41 0 0 0</pose>
+      <inertial>
+        <mass>60.0</mass>
+        <pose>0 0 -0.14 0 0 0</pose>
+        <inertia>
+          <ixx>2.164</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>3.054</iyy><iyz>0.0</iyz>
+          <izz>4.734</izz>
+        </inertia>
+      </inertial>
+
+      <visual name="chassis_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/chassis.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <collision name="chassis_collision">
+        <pose>0 0 0.0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.80 0.60 0.25</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- PASSIVE DIFFERENTIAL BAR -->
+    <link name="differential_bar">
+      <pose relative_to="base_link">0.000 0.000 -0.110 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.105</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.001</iyy><iyz>0.0</iyz>
+          <izz>0.105</izz>
+        </inertia>
+      </inertial>
+      <visual name="differential_bar_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/differential_bar.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      <collision name="differential_bar_collision">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.04 0.60 0.035</size>
+          </box>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="differential_bar_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>differential_bar</child>
+      <pose relative_to="differential_bar">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit>
+          <lower>-0.15</lower>
+          <upper>0.15</upper>
+        </limit>
+        <dynamics>
+          <damping>1.0</damping>
+          <friction>0.1</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <!-- ROCKER ARMS (LEFT & RIGHT) -->
+    <link name="left_rocker">
+      <pose relative_to="base_link">0.000 0.380 -0.110 0 0 0</pose>
+      <inertial>
+        <mass>6.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.005</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.250</iyy><iyz>0.0</iyz>
+          <izz>0.250</izz>
+        </inertia>
+      </inertial>
+      <visual name="left_rocker_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 3.14159265359</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/left_rocker.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      
+      
+    </link>
+
+    <joint name="left_rocker_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>left_rocker</child>
+      <pose relative_to="left_rocker">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.15</lower>
+          <upper>0.15</upper>
+        </limit>
+        <dynamics>
+          <damping>5.0</damping>
+          <friction>1.0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <link name="right_rocker">
+      <pose relative_to="base_link">0.000 -0.380 -0.110 0 0 0</pose>
+      <inertial>
+        <mass>6.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.005</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.250</iyy><iyz>0.0</iyz>
+          <izz>0.250</izz>
+        </inertia>
+      </inertial>
+      <visual name="right_rocker_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 3.14159265359</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/right_rocker.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      
+      
+    </link>
+
+    <joint name="right_rocker_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>right_rocker</child>
+      <pose relative_to="right_rocker">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.15</lower>
+          <upper>0.15</upper>
+        </limit>
+        <dynamics>
+          <damping>5.0</damping>
+          <friction>1.0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <!-- BOGIE ARMS (LEFT & RIGHT) -->
+    <link name="left_bogie">
+      <pose relative_to="left_rocker">-0.325 0.040 -0.350 0 0 0</pose>
+      <inertial>
+        <mass>4.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.003</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.100</iyy><iyz>0.0</iyz>
+          <izz>0.100</izz>
+        </inertia>
+      </inertial>
+      <visual name="left_bogie_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/left_bogie.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      
+    </link>
+
+    <joint name="left_bogie_joint" type="revolute">
+      <parent>left_rocker</parent>
+      <child>left_bogie</child>
+      <pose relative_to="left_bogie">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.12</lower>
+          <upper>0.12</upper>
+        </limit>
+        <dynamics>
+          <damping>4.0</damping>
+          <friction>0.8</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <link name="right_bogie">
+      <pose relative_to="right_rocker">-0.325 -0.040 -0.350 0 0 0</pose>
+      <inertial>
+        <mass>4.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.003</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.100</iyy><iyz>0.0</iyz>
+          <izz>0.100</izz>
+        </inertia>
+      </inertial>
+      <visual name="right_bogie_visual">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <uri>model://lunabot/meshes/right_bogie.glb</uri>
+          </mesh>
+        </geometry>
+      </visual>
+      
+    </link>
+
+    <joint name="right_bogie_joint" type="revolute">
+      <parent>right_rocker</parent>
+      <child>right_bogie</child>
+      <pose relative_to="right_bogie">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit>
+          <lower>-0.12</lower>
+          <upper>0.12</upper>
+        </limit>
+        <dynamics>
+          <damping>4.0</damping>
+          <friction>0.8</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <!-- 6 WHEELS -->
+    <link name="left_front_wheel">
+      <pose relative_to="left_rocker">0.650 0.090 -0.525 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="left_front_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/left_front_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="left_front_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="left_front_wheel_joint" type="revolute">
+      <parent>left_rocker</parent>
+      <child>left_front_wheel</child>
+      <pose relative_to="left_front_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <link name="left_middle_wheel">
+      <pose relative_to="left_bogie">0.325 0.050 -0.175 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="left_middle_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/left_middle_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="left_middle_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="left_middle_wheel_joint" type="revolute">
+      <parent>left_bogie</parent>
+      <child>left_middle_wheel</child>
+      <pose relative_to="left_middle_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <link name="left_rear_wheel">
+      <pose relative_to="left_bogie">-0.325 0.050 -0.175 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="left_rear_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/left_rear_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="left_rear_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="left_rear_wheel_joint" type="revolute">
+      <parent>left_bogie</parent>
+      <child>left_rear_wheel</child>
+      <pose relative_to="left_rear_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <link name="right_front_wheel">
+      <pose relative_to="right_rocker">0.650 -0.090 -0.525 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="right_front_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/right_front_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="right_front_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="right_front_wheel_joint" type="revolute">
+      <parent>right_rocker</parent>
+      <child>right_front_wheel</child>
+      <pose relative_to="right_front_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <link name="right_middle_wheel">
+      <pose relative_to="right_bogie">0.325 -0.050 -0.175 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="right_middle_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/right_middle_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="right_middle_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="right_middle_wheel_joint" type="revolute">
+      <parent>right_bogie</parent>
+      <child>right_middle_wheel</child>
+      <pose relative_to="right_middle_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <link name="right_rear_wheel">
+      <pose relative_to="right_bogie">-0.325 -0.050 -0.175 0 0 0</pose>
+      <inertial>
+        <mass>3.0</mass>
+        <pose>0 0 0 0 0 0</pose>
+        <inertia>
+          <ixx>0.028</ixx><ixy>0.0</ixy><ixz>0.0</ixz>
+          <iyy>0.050</iyy><iyz>0.0</iyz>
+          <izz>0.028</izz>
+        </inertia>
+      </inertial>
+      <visual name="right_rear_wheel_visual">
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh><uri>model://lunabot/meshes/right_rear_wheel.glb</uri></mesh>
+        </geometry>
+      </visual>
+      <collision name="right_rear_wheel_collision">
+        <pose>0 0 0 1.57079632679 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.1825</radius>
+            <length>0.1600</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+              <slip1>0.0</slip1>
+              <slip2>0.02</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>100000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.002</min_depth>
+              <max_vel>0.05</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <joint name="right_rear_wheel_joint" type="revolute">
+      <parent>right_bogie</parent>
+      <child>right_rear_wheel</child>
+      <pose relative_to="right_rear_wheel">0 0 0 0 0 0</pose>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-1e16</lower><upper>1e16</upper></limit>
+        <dynamics><damping>0.05</damping><friction>0.05</friction></dynamics>
+      </axis>
+    </joint>
+
+    <!-- SENSORS -->
+    <link name="lidar_link">
+      <pose relative_to="base_link">0.50 0.0 0.10 0 0 0</pose>
+      <inertial>
+        <mass>0.8</mass>
+        <inertia><ixx>0.001</ixx><iyy>0.001</iyy><izz>0.001</izz></inertia>
+      </inertial>
+      <sensor name="gpu_lidar" type="gpu_lidar">
+        <gz_frame_id>lidar_link</gz_frame_id>
+        <update_rate>10.0</update_rate>
+        <topic>/scan</topic>
+        <visualize>true</visualize>
+        <ray>
+          <scan>
+            <horizontal><samples>360</samples><resolution>1</resolution><min_angle>-3.14159265</min_angle><max_angle>3.14159265</max_angle></horizontal>
+          </scan>
+          <range><min>0.45</min><max>25.0</max><resolution>0.01</resolution></range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </ray>
+      </sensor>
+    </link>
+
+    <joint name="lidar_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_link</child>
+    </joint>
+
+    <link name="imu_link">
+      <pose relative_to="base_link">0.08 0 0.132 0 0 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia><ixx>0.0001</ixx><iyy>0.0001</iyy><izz>0.0001</izz></inertia>
+      </inertial>
+      <sensor name="imu_sensor" type="imu">
+        <update_rate>50.0</update_rate>
+        <topic>/imu/data</topic>
+      </sensor>
+    </link>
+
+    <joint name="imu_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>imu_link</child>
+    </joint>
+
+    <!-- 1. FRONT-LEFT CAMERA (Wide Peripheral Stereo Left Eye) -->
+    <link name="camera_left_link">
+      <pose relative_to="base_link">0.45 0.25 0.12 0 0.20 0.28</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>0.0001</ixx><iyy>0.0001</iyy><izz>0.0001</izz></inertia>
+      </inertial>
+      <visual name="camera_left_visual">
+        <geometry><box><size>0.03 0.05 0.03</size></box></geometry>
+      </visual>
+      <sensor name="camera_left" type="camera">
+        <always_on>true</always_on>
+        <update_rate>30.0</update_rate>
+        <visualize>true</visualize>
+        <topic>/camera/left/image_raw</topic>
+        <camera name="left">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image><width>848</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>25.0</far></clip>
+        </camera>
+      </sensor>
+    </link>
+    <joint name="camera_left_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_left_link</child>
+    </joint>
+
+    <!-- 2. FRONT-RIGHT CAMERA (Wide Peripheral Stereo Right Eye) -->
+    <link name="camera_right_link">
+      <pose relative_to="base_link">0.45 -0.25 0.12 0 0.20 -0.28</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>0.0001</ixx><iyy>0.0001</iyy><izz>0.0001</izz></inertia>
+      </inertial>
+      <visual name="camera_right_visual">
+        <geometry><box><size>0.03 0.05 0.03</size></box></geometry>
+      </visual>
+      <sensor name="camera_right" type="camera">
+        <always_on>true</always_on>
+        <update_rate>30.0</update_rate>
+        <visualize>true</visualize>
+        <topic>/camera/right/image_raw</topic>
+        <camera name="right">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image><width>848</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>25.0</far></clip>
+        </camera>
+      </sensor>
+    </link>
+    <joint name="camera_right_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_right_link</child>
+    </joint>
+
+    <!-- 3. REAR HAZARD CAMERA (Facing Backwards -X Pitched 15° Down) -->
+    <link name="camera_rear_link">
+      <pose relative_to="base_link">-0.45 0.0 0.15 0 0.26 3.14159265</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>0.0001</ixx><iyy>0.0001</iyy><izz>0.0001</izz></inertia>
+      </inertial>
+      <visual name="camera_rear_visual">
+        <geometry><box><size>0.03 0.05 0.03</size></box></geometry>
+      </visual>
+      <sensor name="camera_rear" type="camera">
+        <always_on>true</always_on>
+        <update_rate>30.0</update_rate>
+        <visualize>true</visualize>
+        <topic>/camera/rear/image_raw</topic>
+        <camera name="rear">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image><width>848</width><height>480</height><format>R8G8B8</format></image>
+          <clip><near>0.1</near><far>25.0</far></clip>
+        </camera>
+      </sensor>
+    </link>
+    <joint name="camera_rear_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_rear_link</child>
+    </joint>
+
+    <!-- GAZEBO PLUGINS -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <joint_name>left_rocker_joint</joint_name>
+      <joint_name>right_rocker_joint</joint_name>
+      <joint_name>left_bogie_joint</joint_name>
+      <joint_name>right_bogie_joint</joint_name>
+      <joint_name>differential_bar_joint</joint_name>
+      <joint_name>left_front_wheel_joint</joint_name>
+      <joint_name>left_middle_wheel_joint</joint_name>
+      <joint_name>left_rear_wheel_joint</joint_name>
+      <joint_name>right_front_wheel_joint</joint_name>
+      <joint_name>right_middle_wheel_joint</joint_name>
+      <joint_name>right_rear_wheel_joint</joint_name>
+      <topic>/joint_states</topic>
+    </plugin>
+
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <left_joint>left_front_wheel_joint</left_joint>
+      <left_joint>left_middle_wheel_joint</left_joint>
+      <left_joint>left_rear_wheel_joint</left_joint>
+      <right_joint>right_front_wheel_joint</right_joint>
+      <right_joint>right_middle_wheel_joint</right_joint>
+      <right_joint>right_rear_wheel_joint</right_joint>
+      <wheel_separation>0.94</wheel_separation>
+      <wheel_radius>0.1825</wheel_radius>
+      <max_wheel_torque>15.0</max_wheel_torque>
+      <max_linear_acceleration>0.5</max_linear_acceleration>
+      <min_linear_acceleration>-0.5</min_linear_acceleration>
+      <max_angular_acceleration>0.8</max_angular_acceleration>
+      <min_angular_acceleration>-0.8</min_angular_acceleration>
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+    </plugin>
+  </model>
+</sdf>

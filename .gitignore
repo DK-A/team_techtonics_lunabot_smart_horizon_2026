@@ -1,0 +1,73 @@
+# ==============================================================================
+# LUNABOT / TEAM TECHTONICS GIT IGNORE CONFIGURATION
+# ==============================================================================
+
+# ROS 2 Colcon Build & Install Artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Python Bytecode & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Blender Backups & Temporary CAD Caches
+*.blend1
+*.blend2
+
+# IDE & Editor Configs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Large Archives & Temporary Scratch Files
+environment/web_dashboard.zip
+*.tar.gz
+*.zip
+core
+vgcore.*
+
+# SQLite Database Files (keep schema and code tracked, exclude local binary state)
+tools/web_dashboard/database/*.db
+tools/web_dashboard/database/*.db-wal
+tools/web_dashboard/database/*.db-shm
+
+# Large Video Recordings Cache
+tools/web_dashboard/recordings/*.mp4
+tools/web_dashboard/recordings/*.webm
+tools/web_dashboard/database/recordings/*.mp4
+tools/web_dashboard/database/recordings/*.webm
+!tools/web_dashboard/recordings/.gitkeep
+!tools/web_dashboard/database/recordings/.gitkeep

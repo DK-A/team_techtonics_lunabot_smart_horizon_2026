@@ -1,0 +1,271 @@
+<?xml version="1.0"?>
+<robot name="lunabot">
+  <!-- BASE LINK / CHASSIS -->
+  <link name="base_link">
+    <inertial>
+      <mass value="60.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="3.2" ixy="0.0" ixz="0.0" iyy="5.5" iyz="0.0" izz="7.8"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/chassis.glb"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.80 0.60 0.25"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- DIFFERENTIAL BAR -->
+  <link name="differential_bar">
+    <inertial>
+      <mass value="3.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.105" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.105"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/differential_bar.glb"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="differential_bar_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="differential_bar"/>
+    <origin xyz="0.000 0.000 -0.110" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.15" upper="0.15" effort="50" velocity="1.0"/>
+    <dynamics damping="1.0" friction="0.1"/>
+  </joint>
+
+  <!-- ROCKERS -->
+  <link name="left_rocker">
+    <inertial>
+      <mass value="6.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.005" ixy="0.0" ixz="0.0" iyy="0.25" iyz="0.0" izz="0.25"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.14159265359"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/left_rocker.glb"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="left_rocker_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="left_rocker"/>
+    <origin xyz="0.000 0.380 -0.110" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.20" upper="0.20" effort="100" velocity="1.0"/>
+    <dynamics damping="20.0" friction="0.5"/>
+  </joint>
+
+  <link name="right_rocker">
+    <inertial>
+      <mass value="6.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.005" ixy="0.0" ixz="0.0" iyy="0.25" iyz="0.0" izz="0.25"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 3.14159265359"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/right_rocker.glb"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="right_rocker_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="right_rocker"/>
+    <origin xyz="0.000 -0.380 -0.110" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.20" upper="0.20" effort="100" velocity="1.0"/>
+    <dynamics damping="20.0" friction="0.5"/>
+  </joint>
+
+  <!-- BOGIES -->
+  <link name="left_bogie">
+    <inertial>
+      <mass value="4.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.003" ixy="0.0" ixz="0.0" iyy="0.10" iyz="0.0" izz="0.10"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/left_bogie.glb"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="left_bogie_joint" type="revolute">
+    <parent link="left_rocker"/>
+    <child link="left_bogie"/>
+    <origin xyz="-0.325 0.040 -0.350" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.20" upper="0.20" effort="50" velocity="1.0"/>
+    <dynamics damping="15.0" friction="0.3"/>
+  </joint>
+
+  <link name="right_bogie">
+    <inertial>
+      <mass value="4.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.003" ixy="0.0" ixz="0.0" iyy="0.10" iyz="0.0" izz="0.10"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="package://lunabot/meshes/right_bogie.glb"/>
+      </geometry>
+    </visual>
+  </link>
+  <joint name="right_bogie_joint" type="revolute">
+    <parent link="right_rocker"/>
+    <child link="right_bogie"/>
+    <origin xyz="-0.325 -0.040 -0.350" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.20" upper="0.20" effort="50" velocity="1.0"/>
+    <dynamics damping="15.0" friction="0.3"/>
+  </joint>
+
+  <!-- 6 WHEELS -->
+  <link name="left_front_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/left_front_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="left_front_wheel_joint" type="continuous">
+    <parent link="left_rocker"/>
+    <child link="left_front_wheel"/>
+    <origin xyz="0.650 0.090 -0.525" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="left_middle_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/left_middle_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="left_middle_wheel_joint" type="continuous">
+    <parent link="left_bogie"/>
+    <child link="left_middle_wheel"/>
+    <origin xyz="0.325 0.050 -0.175" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="left_rear_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/left_rear_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="left_rear_wheel_joint" type="continuous">
+    <parent link="left_bogie"/>
+    <child link="left_rear_wheel"/>
+    <origin xyz="-0.325 0.050 -0.175" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="right_front_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/right_front_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="right_front_wheel_joint" type="continuous">
+    <parent link="right_rocker"/>
+    <child link="right_front_wheel"/>
+    <origin xyz="0.650 -0.090 -0.525" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="right_middle_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/right_middle_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="right_middle_wheel_joint" type="continuous">
+    <parent link="right_bogie"/>
+    <child link="right_middle_wheel"/>
+    <origin xyz="0.325 -0.050 -0.175" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <link name="right_rear_wheel">
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.028" ixy="0.0" ixz="0.0" iyy="0.05" iyz="0.0" izz="0.028"/>
+    </inertial>
+    <visual><geometry><mesh filename="package://lunabot/meshes/right_rear_wheel.glb"/></geometry></visual>
+    <collision><origin xyz="0 0 0" rpy="1.57079632679 0 0"/><geometry><cylinder radius="0.1825" length="0.1600"/></geometry></collision>
+  </link>
+  <joint name="right_rear_wheel_joint" type="continuous">
+    <parent link="right_bogie"/>
+    <child link="right_rear_wheel"/>
+    <origin xyz="-0.325 -0.050 -0.175" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- SENSORS -->
+  <link name="camera_left_link">
+    <visual><geometry><box size="0.03 0.05 0.03"/></geometry></visual>
+  </link>
+  <joint name="camera_left_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_left_link"/>
+    <origin xyz="0.45 0.25 0.12" rpy="0 0.20 0.28"/>
+  </joint>
+
+  <link name="camera_right_link">
+    <visual><geometry><box size="0.03 0.05 0.03"/></geometry></visual>
+  </link>
+  <joint name="camera_right_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_right_link"/>
+    <origin xyz="0.45 -0.25 0.12" rpy="0 0.20 -0.28"/>
+  </joint>
+
+  <link name="camera_rear_link">
+    <visual><geometry><box size="0.03 0.05 0.03"/></geometry></visual>
+  </link>
+  <joint name="camera_rear_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_rear_link"/>
+    <origin xyz="-0.45 0.0 0.15" rpy="0 0.26 3.14159265"/>
+  </joint>
+
+  <link name="lidar_link">
+    <visual><geometry><cylinder radius="0.05" length="0.07"/></geometry></visual>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.50 0.0 0.28" rpy="0 0 0"/>
+  </joint>
+
+  <link name="environmental_sensor_link"/>
+  <joint name="environmental_sensor_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="environmental_sensor_link"/>
+    <origin xyz="0 0 0.20" rpy="0 0 0"/>
+  </joint>
+</robot>

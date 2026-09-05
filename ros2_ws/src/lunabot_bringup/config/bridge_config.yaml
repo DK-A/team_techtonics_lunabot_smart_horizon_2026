@@ -1,0 +1,67 @@
+# ==============================================================================
+# ROS 2 HUMBLE <-> GAZEBO SIM 8 HARMONIC BRIDGE CONFIGURATION
+# Location: /home/dk05/Desktop/SMART_HORIZON/LUNA_PRO/ros2_ws/src/lunabot_bringup/config/bridge_config.yaml
+# ==============================================================================
+
+# 1. Simulation Clock Bridge
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# 2. Rover Command Velocity Bridge
+- ros_topic_name: "/cmd_vel"
+  gz_topic_name: "/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# 3. Rover Odometry Bridge
+- ros_topic_name: "/odom"
+  gz_topic_name: "/odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# 5. 360° GPU LiDAR Scan Bridge
+- ros_topic_name: "/scan"
+  gz_topic_name: "/scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# 6. Stereo Left Optical Camera Bridge
+- ros_topic_name: "/camera/left/image_raw"
+  gz_topic_name: "/camera/left/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# 7. Stereo Right Optical Camera Bridge
+- ros_topic_name: "/camera/right/image_raw"
+  gz_topic_name: "/camera/right/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# 8. Rear Hazard Camera Bridge
+- ros_topic_name: "/camera/rear/image_raw"
+  gz_topic_name: "/camera/rear/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# 9. Accelerometer & Gyro IMU Sensor Bridge
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/imu/data"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# 10. Dynamic Rocker-Bogie Joint States Bridge
+- ros_topic_name: "/joint_states"
+  gz_topic_name: "/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS

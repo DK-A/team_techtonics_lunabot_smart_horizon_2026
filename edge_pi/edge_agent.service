@@ -1,0 +1,18 @@
+[Unit]
+Description=LunaBot Raspberry Pi 4B Edge Gateway Agent
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=techtonics
+WorkingDirectory=/home/techtonics
+ExecStartPre=/bin/bash -c "mkdir -p /home/techtonics/edge_pi && (curl -fsSL http://10.42.0.1:8080/edge_agent.py -o /home/techtonics/edge_pi/edge_agent.py || test -f /home/techtonics/edge_pi/edge_agent.py) && chmod +x /home/techtonics/edge_pi/edge_agent.py"
+ExecStart=/usr/bin/python3 /home/techtonics/edge_pi/edge_agent.py
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
