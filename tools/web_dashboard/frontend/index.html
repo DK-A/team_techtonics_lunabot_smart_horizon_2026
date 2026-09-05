@@ -709,170 +709,24 @@
       }
     }
 
-    // ── Telemetry Polling (Every 250ms for live responsiveness) ──
+    // ── Telemetry Polling (High-frequency, Zero-cache, Concurrency-guarded) ──
+    let isTelemetryPolling = false;
     async function pollTelemetry() {
+      if (isTelemetryPolling) return;
+      isTelemetryPolling = true;
       try {
-        const res = await fetch('/api/telemetry');
+        const res = await fetch('/api/telemetry?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (!res.ok) return;
         const d = await res.json();
+        if (!d) return;
 
-        // 1. Render Explainable AI (XAI) Live Decision Feed (Top Priority)
-        try {
-          if (d.xai_logs && d.xai_logs.length > 0) {
-            const feed = document.getElementById('xai-feed');
-            if (feed) {
-              feed.innerHTML = d.xai_logs.map(log => {
-                let catColor = '#00e5ff';
-                let badgeCls = 'bc';
-                if (log.category === 'SCIENCE') { catColor = '#00e676'; badgeCls = 'bg'; }
-                else if (log.category === 'TERRA') { catColor = '#ffd600'; badgeCls = 'by'; }
-                else if (log.category === 'SAFETY') { catColor = '#ff334b'; badgeCls = 'br'; }
-                else if (log.category === 'MISSION') { catColor = '#b388ff'; badgeCls = 'bb'; }
-                else if (log.category === 'EDGE') { catColor = '#e040fb'; badgeCls = 'bm'; }
-                else if (log.category === 'AI_COPILOT') { catColor = '#00e5ff'; badgeCls = 'bc'; }
-
-                let textCol = log.severity === 'CRITICAL' ? '#ff5252' : (log.severity === 'WARN' ? '#ffd740' : (log.severity === 'SUCCESS' ? '#69f0ae' : '#eceff1'));
-                return `<div style="display:flex; gap:8px; align-items:flex-start; padding:3px 6px; background:rgba(255,255,255,0.02); border-radius:4px; border-left:3px solid ${catColor};">
-                  <span style="color:var(--dim); min-width:55px;">[${log.time}]</span>
-                  <span class="badge ${badgeCls}" style="font-size:0.62rem; padding:1px 5px;">${log.category}</span>
-                  <span style="color:${textCol}; flex:1;">${log.explanation}</span>
-                </div>`;
-              }).join('');
-            }
-          }
-        } catch (eXai) { console.warn("XAI render error:", eXai); }
-
-        // 2. Render Autonomous Patrol Button State
-        try {
-          if (d.patrol_active !== undefined) {
-            const btn = document.getElementById('btn-patrol');
-            if (btn) {
-              isPatrolRunning = d.patrol_active;
-              if (d.patrol_active) {
-                btn.innerText = `🛑 STOP PATROL (WP #${d.patrol_index + 1})`;
-                btn.style.background = 'rgba(255, 51, 75, 0.22)';
-                btn.style.borderColor = 'var(--red)';
-                btn.style.color = 'var(--red)';
-              } else {
-                btn.innerText = '🚀 START AUTONOMOUS PATROL';
-                btn.style.background = 'rgba(0, 230, 118, 0.16)';
-                btn.style.borderColor = 'var(--green)';
-                btn.style.color = 'var(--green)';
-              }
-            }
-          }
-        } catch (ePat) {}
-
-        // 3. Update Robot Kinematics & Mission Status
-        try {
-          if (d.robot_pose) {
-            const elX = document.getElementById('v-x'); if (elX) elX.innerText = d.robot_pose.x.toFixed(2) + ' m';
-            const elY = document.getElementById('v-y'); if (elY) elY.innerText = d.robot_pose.y.toFixed(2) + ' m';
-          } else if (d.odom) {
-            const elX = document.getElementById('v-x'); if (elX) elX.innerText = d.odom.x.toFixed(2) + ' m';
-            const elY = document.getElementById('v-y'); if (elY) elY.innerText = d.odom.y.toFixed(2) + ' m';
-          }
-          if (d.odom) {
-            const elSpd = document.getElementById('v-speed'); if (elSpd) elSpd.innerText = d.odom.speed.toFixed(2) + ' m/s';
-          }
-          if (d.imu) {
-            const elGrav = document.getElementById('v-grav');
-            if (elGrav) {
-              const p = (d.imu.pitch !== undefined) ? ` | P:${d.imu.pitch.toFixed(1)}°` : '';
-              elGrav.innerText = `${d.imu.acc_z.toFixed(3)} m/s²${p}`;
-            }
-          }
-          if (d.nav_status) {
-            const elSt = document.getElementById('v-nav-state'); if (elSt) elSt.innerText = d.nav_status;
-            const elBadge = document.getElementById('v-nav-badge');
-            if (elBadge) {
-              elBadge.innerText = d.nav_status;
-              elBadge.className = 'badge ' + (d.nav_status === 'NAVIGATING' ? 'bc' : (d.nav_status === 'TARGET_REACHED' ? 'bg' : (d.nav_status === 'IDLE' ? 'by' : 'br')));
-            }
-          }
-          if (d.mission_activity) {
-            const elAct = document.getElementById('v-activity');
-            if (elAct) elAct.innerText = d.mission_activity;
-          }
-          const elTgt = document.getElementById('v-nav-target');
-          if (elTgt) {
-            elTgt.innerText = (d.current_target && d.current_target[2]) ? d.current_target[2] : "None";
-          }
-          if (d.distance_remaining !== undefined) {
-            const elDist = document.getElementById('v-nav-dist');
-            if (elDist) elDist.innerText = Number(d.distance_remaining).toFixed(2) + ' m';
-          }
-        } catch(eKin) {}
-
-        // 4. Update Environmental Telemetry
-        try {
-          if (d.env) {
-            if (d.env.environment_state) {
-              const el = document.getElementById('v-atm-state');
-              if (el) el.innerText = d.env.environment_state.replace('_', ' ');
-            }
-            if (d.env.pressure_display) {
-              const el = document.getElementById('v-pres'); if (el) el.innerText = d.env.pressure_display;
-            } else if (d.env.pressure_bmp390_hpa !== undefined || d.env.pressure_hpa !== undefined) {
-              const p = Number(d.env.pressure_bmp390_hpa || d.env.pressure_hpa);
-              const el = document.getElementById('v-pres');
-              if (el) el.innerText = p < 0.001 ? p.toExponential(2) + ' hPa' : `${p.toFixed(2)} hPa`;
-            }
-            if (d.env.o2_percent !== undefined) {
-              const o2Val = Number(d.env.o2_percent);
-              const el = document.getElementById('v-o2');
-              if (el) el.innerText = o2Val <= 0.01 ? '0.00 % (Vacuum)' : `${o2Val.toFixed(2)} %`;
-            }
-            if (d.env.ambient_temp_k !== undefined) {
-              const c = (d.env.ambient_temp_k - 273.15).toFixed(1);
-              const el = document.getElementById('v-temp');
-              if (el) el.innerText = `${c} °C (${Number(d.env.ambient_temp_k).toFixed(1)} K)`;
-            }
-            if (d.env.dust_concentration_ug_m3 !== undefined) {
-              const el = document.getElementById('v-dust');
-              if (el) el.innerText = `${Number(d.env.dust_concentration_ug_m3).toFixed(1)} µg/m³`;
-            }
-            if (d.env.radiation_msv_h !== undefined) {
-              const el = document.getElementById('v-rad');
-              if (el) el.innerText = `${Number(d.env.radiation_msv_h).toFixed(3)} mSv/h`;
-            }
-            if (d.env.solar_flux_w_m2 !== undefined) {
-              const el = document.getElementById('v-solar');
-              if (el) el.innerText = `${Number(d.env.solar_flux_w_m2).toFixed(1)} W/m²`;
-            }
-            if (d.env.ml_anomaly_score !== undefined) {
-              const el = document.getElementById('v-iso-anomaly');
-              if (el) {
-                const s = Number(d.env.ml_anomaly_score);
-                el.innerText = `${s.toFixed(3)} (${d.env.ml_anomaly_detected ? 'ANOMALY' : 'NOMINAL'})`;
-                el.className = 'val ' + (d.env.ml_anomaly_detected ? 'r' : 'g');
-              }
-            }
-          }
-        } catch(eEnv) {}
-
-        // 5. Update Terramechanics
-        try {
-          if (d.terramechanics) {
-            const tm = d.terramechanics;
-            const slipPct = (tm.slip_ratio * 100).toFixed(1);
-            const elSlip = document.getElementById('v-terra-slip'); if (elSlip) elSlip.innerText = `${slipPct} %`;
-            const bar = document.getElementById('v-terra-slip-bar');
-            if (bar) {
-              bar.style.width = `${Math.min(100, Math.max(3, tm.slip_ratio * 100))}%`;
-              bar.style.background = tm.slip_ratio > 0.5 ? 'var(--red)' : (tm.slip_ratio > 0.25 ? 'var(--orange)' : 'var(--green)');
-            }
-            const elSink = document.getElementById('v-terra-sinkage'); if (elSink) elSink.innerText = `${Number(tm.sinkage_mm).toFixed(1)} mm`;
-            const elTrac = document.getElementById('v-terra-traction'); if (elTrac) elTrac.innerText = `${(tm.traction_coeff * 100).toFixed(0)} %`;
-            const elAnom = document.getElementById('v-terra-anomaly'); if (elAnom) elAnom.innerText = `${Number(tm.anomaly_score).toFixed(2)}`;
-            const badge = document.getElementById('v-terra-badge');
-            if (badge) {
-              badge.innerText = tm.anomaly_state || 'NOMINAL';
-              badge.className = 'badge ' + (tm.anomaly_state === 'NOMINAL' ? 'bg' : (tm.anomaly_state === 'MODERATE_SLIP' ? 'by' : 'br'));
-            }
-          }
-        } catch(eTm) {}
-
-        // 6. Update Edge Computing Gateway Telemetry (Instant Connection Lost / Restored Handler)
+        // 1. Update Edge Computing Gateway Telemetry (Top Priority for instant UI reaction)
         try {
           if (d.edge_device) {
             const ed = d.edge_device;
@@ -969,7 +823,7 @@
           }
         } catch(eEdge) { console.warn("Edge render error:", eEdge); }
 
-        // 7. Dynamic Simulation Freeze & Resume Control
+        // 2. Dynamic Simulation Freeze & Resume Control (Instant visual feedback)
         try {
           const isFrozen = (d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false;
           window.isSimulationFrozen = isFrozen;
@@ -1017,8 +871,167 @@
           }
         } catch(eFreeze) { console.warn("Freeze render error:", eFreeze); }
 
+        // 3. Render Explainable AI (XAI) Live Decision Feed
+        try {
+          if (d.xai_logs && d.xai_logs.length > 0) {
+            const feed = document.getElementById('xai-feed');
+            if (feed) {
+              feed.innerHTML = d.xai_logs.map(log => {
+                let catColor = '#00e5ff';
+                let badgeCls = 'bc';
+                if (log.category === 'SCIENCE') { catColor = '#00e676'; badgeCls = 'bg'; }
+                else if (log.category === 'TERRA') { catColor = '#ffd600'; badgeCls = 'by'; }
+                else if (log.category === 'SAFETY') { catColor = '#ff334b'; badgeCls = 'br'; }
+                else if (log.category === 'MISSION') { catColor = '#b388ff'; badgeCls = 'bb'; }
+                else if (log.category === 'EDGE') { catColor = '#e040fb'; badgeCls = 'bm'; }
+                else if (log.category === 'AI_COPILOT') { catColor = '#00e5ff'; badgeCls = 'bc'; }
+
+                let textCol = log.severity === 'CRITICAL' ? '#ff5252' : (log.severity === 'WARN' ? '#ffd740' : (log.severity === 'SUCCESS' ? '#69f0ae' : '#eceff1'));
+                return `<div style="display:flex; gap:8px; align-items:flex-start; padding:3px 6px; background:rgba(255,255,255,0.02); border-radius:4px; border-left:3px solid ${catColor};">
+                  <span style="color:var(--dim); min-width:55px;">[${log.time}]</span>
+                  <span class="badge ${badgeCls}" style="font-size:0.62rem; padding:1px 5px;">${log.category}</span>
+                  <span style="color:${textCol}; flex:1;">${log.explanation}</span>
+                </div>`;
+              }).join('');
+            }
+          }
+        } catch (eXai) { console.warn("XAI render error:", eXai); }
+
+        // 4. Render Autonomous Patrol Button State
+        try {
+          if (d.patrol_active !== undefined) {
+            const btn = document.getElementById('btn-patrol');
+            if (btn) {
+              isPatrolRunning = d.patrol_active;
+              if (d.patrol_active) {
+                btn.innerText = `🛑 STOP PATROL (WP #${d.patrol_index + 1})`;
+                btn.style.background = 'rgba(255, 51, 75, 0.22)';
+                btn.style.borderColor = 'var(--red)';
+                btn.style.color = 'var(--red)';
+              } else {
+                btn.innerText = '🚀 START AUTONOMOUS PATROL';
+                btn.style.background = 'rgba(0, 230, 118, 0.16)';
+                btn.style.borderColor = 'var(--green)';
+                btn.style.color = 'var(--green)';
+              }
+            }
+          }
+        } catch (ePat) {}
+
+        // 5. Update Robot Kinematics & Mission Status
+        try {
+          if (d.robot_pose) {
+            const elX = document.getElementById('v-x'); if (elX) elX.innerText = d.robot_pose.x.toFixed(2) + ' m';
+            const elY = document.getElementById('v-y'); if (elY) elY.innerText = d.robot_pose.y.toFixed(2) + ' m';
+          } else if (d.odom) {
+            const elX = document.getElementById('v-x'); if (elX) elX.innerText = d.odom.x.toFixed(2) + ' m';
+            const elY = document.getElementById('v-y'); if (elY) elY.innerText = d.odom.y.toFixed(2) + ' m';
+          }
+          if (d.odom) {
+            const elSpd = document.getElementById('v-speed'); if (elSpd) elSpd.innerText = d.odom.speed.toFixed(2) + ' m/s';
+          }
+          if (d.imu) {
+            const elGrav = document.getElementById('v-grav');
+            if (elGrav) {
+              const p = (d.imu.pitch !== undefined) ? ` | P:${d.imu.pitch.toFixed(1)}°` : '';
+              elGrav.innerText = `${d.imu.acc_z.toFixed(3)} m/s²${p}`;
+            }
+          }
+          if (d.nav_status) {
+            const elSt = document.getElementById('v-nav-state'); if (elSt) elSt.innerText = d.nav_status;
+            const elBadge = document.getElementById('v-nav-badge');
+            if (elBadge) {
+              elBadge.innerText = d.nav_status;
+              elBadge.className = 'badge ' + (d.nav_status === 'NAVIGATING' ? 'bc' : (d.nav_status === 'TARGET_REACHED' ? 'bg' : (d.nav_status === 'IDLE' ? 'by' : 'br')));
+            }
+          }
+          if (d.mission_activity) {
+            const elAct = document.getElementById('v-activity');
+            if (elAct) elAct.innerText = d.mission_activity;
+          }
+          const elTgt = document.getElementById('v-nav-target');
+          if (elTgt) {
+            elTgt.innerText = (d.current_target && d.current_target[2]) ? d.current_target[2] : "None";
+          }
+          if (d.distance_remaining !== undefined) {
+            const elDist = document.getElementById('v-nav-dist');
+            if (elDist) elDist.innerText = Number(d.distance_remaining).toFixed(2) + ' m';
+          }
+        } catch(eKin) {}
+
+        // 6. Update Environmental Telemetry
+        try {
+          if (d.env) {
+            if (d.env.environment_state) {
+              const el = document.getElementById('v-atm-state');
+              if (el) el.innerText = d.env.environment_state.replace('_', ' ');
+            }
+            if (d.env.pressure_display) {
+              const el = document.getElementById('v-pres'); if (el) el.innerText = d.env.pressure_display;
+            } else if (d.env.pressure_bmp390_hpa !== undefined || d.env.pressure_hpa !== undefined) {
+              const p = Number(d.env.pressure_bmp390_hpa || d.env.pressure_hpa);
+              const el = document.getElementById('v-pres');
+              if (el) el.innerText = p < 0.001 ? p.toExponential(2) + ' hPa' : `${p.toFixed(2)} hPa`;
+            }
+            if (d.env.o2_percent !== undefined) {
+              const o2Val = Number(d.env.o2_percent);
+              const el = document.getElementById('v-o2');
+              if (el) el.innerText = o2Val <= 0.01 ? '0.00 % (Vacuum)' : `${o2Val.toFixed(2)} %`;
+            }
+            if (d.env.ambient_temp_k !== undefined) {
+              const c = (d.env.ambient_temp_k - 273.15).toFixed(1);
+              const el = document.getElementById('v-temp');
+              if (el) el.innerText = `${c} °C (${Number(d.env.ambient_temp_k).toFixed(1)} K)`;
+            }
+            if (d.env.dust_concentration_ug_m3 !== undefined) {
+              const el = document.getElementById('v-dust');
+              if (el) el.innerText = `${Number(d.env.dust_concentration_ug_m3).toFixed(1)} µg/m³`;
+            }
+            if (d.env.radiation_msv_h !== undefined) {
+              const el = document.getElementById('v-rad');
+              if (el) el.innerText = `${Number(d.env.radiation_msv_h).toFixed(3)} mSv/h`;
+            }
+            if (d.env.solar_flux_w_m2 !== undefined) {
+              const el = document.getElementById('v-solar');
+              if (el) el.innerText = `${Number(d.env.solar_flux_w_m2).toFixed(1)} W/m²`;
+            }
+            if (d.env.ml_anomaly_score !== undefined) {
+              const el = document.getElementById('v-iso-anomaly');
+              if (el) {
+                const s = Number(d.env.ml_anomaly_score);
+                el.innerText = `${s.toFixed(3)} (${d.env.ml_anomaly_detected ? 'ANOMALY' : 'NOMINAL'})`;
+                el.className = 'val ' + (d.env.ml_anomaly_detected ? 'r' : 'g');
+              }
+            }
+          }
+        } catch(eEnv) {}
+
+        // 7. Update Terramechanics
+        try {
+          if (d.terramechanics) {
+            const tm = d.terramechanics;
+            const slipPct = (tm.slip_ratio * 100).toFixed(1);
+            const elSlip = document.getElementById('v-terra-slip'); if (elSlip) elSlip.innerText = `${slipPct} %`;
+            const bar = document.getElementById('v-terra-slip-bar');
+            if (bar) {
+              bar.style.width = `${Math.min(100, Math.max(3, tm.slip_ratio * 100))}%`;
+              bar.style.background = tm.slip_ratio > 0.5 ? 'var(--red)' : (tm.slip_ratio > 0.25 ? 'var(--orange)' : 'var(--green)');
+            }
+            const elSink = document.getElementById('v-terra-sinkage'); if (elSink) elSink.innerText = `${Number(tm.sinkage_mm).toFixed(1)} mm`;
+            const elTrac = document.getElementById('v-terra-traction'); if (elTrac) elTrac.innerText = `${(tm.traction_coeff * 100).toFixed(0)} %`;
+            const elAnom = document.getElementById('v-terra-anomaly'); if (elAnom) elAnom.innerText = `${Number(tm.anomaly_score).toFixed(2)}`;
+            const badge = document.getElementById('v-terra-badge');
+            if (badge) {
+              badge.innerText = tm.anomaly_state || 'NOMINAL';
+              badge.className = 'badge ' + (tm.anomaly_state === 'NOMINAL' ? 'bg' : (tm.anomaly_state === 'MODERATE_SLIP' ? 'by' : 'br'));
+            }
+          }
+        } catch(eTm) {}
+
       } catch(e) {
         console.warn("pollTelemetry general exception:", e);
+      } finally {
+        isTelemetryPolling = false;
       }
     }
     pollTelemetry();

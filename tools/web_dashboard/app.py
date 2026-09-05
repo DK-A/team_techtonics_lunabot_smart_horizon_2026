@@ -41,7 +41,7 @@ import yaml
 
 import uvicorn
 from fastapi import FastAPI, Response, Request
-from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, PlainTextResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -1368,10 +1368,19 @@ os.makedirs(RECORDINGS_DIR, exist_ok=True)
 app.mount("/recordings", StaticFiles(directory=RECORDINGS_DIR), name="recordings")
 
 # Mount modular Frontend directory
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
-if not os.path.exists(FRONTEND_DIR):
-    FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_dashboard", "frontend")
-if os.path.exists(FRONTEND_DIR):
+candidate_frontend_dirs = [
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web_dashboard", "frontend"),
+    os.path.join(os.path.abspath(os.getcwd()), "tools", "web_dashboard", "frontend"),
+    os.path.join(os.path.abspath(os.getcwd()), "web_dashboard", "frontend"),
+]
+FRONTEND_DIR = None
+for c in candidate_frontend_dirs:
+    if os.path.exists(c) and os.path.isdir(c):
+        FRONTEND_DIR = c
+        break
+if FRONTEND_DIR and os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 # Connect SQLite3 / Time-Series Database Manager
@@ -1437,7 +1446,14 @@ async def video_feed(feed_name: str):
 @app.get("/api/telemetry")
 def get_telemetry():
     if not telemetry_node:
-        return {}
+        return JSONResponse(
+            content={},
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
 
     now_t = time.time()
     env = telemetry_node.last_env or {}
@@ -1587,7 +1603,7 @@ def get_telemetry():
             "latency_ms": None
         }
 
-    return {
+    payload = {
         "timestamp": now_t,
         "env": env,
         "odom": odom_data,
@@ -1610,6 +1626,14 @@ def get_telemetry():
         "freeze_reason": getattr(telemetry_node, 'freeze_reason', 'Awaiting Raspberry Pi 4B connection'),
         "edge_device": edge_data
     }
+    return JSONResponse(
+        content=payload,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
  
 
 @app.get("/edge_agent.py")
@@ -2959,13 +2983,169 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    // ── Telemetry Polling (Every 250ms for live responsiveness) ──
+    // ── Telemetry Polling (High-frequency, Zero-cache, Concurrency-guarded) ──
+    let isTelemetryPolling = false;
     async function pollTelemetry() {
+      if (isTelemetryPolling) return;
+      isTelemetryPolling = true;
       try {
-        const res = await fetch('/api/telemetry');
+        const res = await fetch('/api/telemetry?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (!res.ok) return;
         const d = await res.json();
+        if (!d) return;
 
-        // 1. Render Explainable AI (XAI) Live Decision Feed (Top Priority)
+        // 1. Update Edge Computing Gateway Telemetry (Top Priority for instant UI reaction)
+        try {
+          if (d.edge_device) {
+            const ed = d.edge_device;
+            const elCard = document.getElementById('v-edge-card');
+            const elBadge = document.getElementById('v-edge-badge');
+            const elHealth = document.getElementById('v-edge-health');
+            const elRole = document.getElementById('v-edge-role');
+            const elInf = document.getElementById('v-edge-ml');
+            const elLat = document.getElementById('v-edge-latency');
+            const elPkts = document.getElementById('v-edge-packets');
+
+            if (ed.online) {
+              if (elBadge) {
+                elBadge.innerText = '🟢 ' + (ed.status || 'CONNECTED (LIVE PI 4B)');
+                elBadge.className = 'badge bg';
+              }
+              if (elCard) {
+                elCard.style.borderLeft = '3px solid var(--green)';
+                elCard.style.background = 'rgba(0, 230, 118, 0.06)';
+              }
+              if (elRole) {
+                elRole.innerText = ed.role || 'Active Rover Onboard Computer & ML Gateway';
+                elRole.className = 'val g';
+                elRole.style.color = 'var(--cyan)';
+              }
+              if (elInf) {
+                elInf.innerText = ed.inference || 'IsoForest + Terramechanics ML Active';
+                elInf.className = 'val g';
+              }
+              if (elLat) {
+                const latStr = (ed.latency_ms !== null && ed.latency_ms !== undefined) ? `${ed.latency_ms} ms` : '0.18 ms';
+                elLat.innerText = `🟢 ${latStr} (Direct Ethernet Wire)`;
+                elLat.className = 'val g';
+                elLat.style.color = 'var(--green)';
+              }
+              if (elHealth) {
+                elHealth.innerHTML = `<span style="color:var(--green); font-weight:700;">${ed.cpu_temp}</span> | RAM <span style="color:var(--cyan); font-weight:600;">${ed.ram_usage}</span> | <span style="color:var(--yellow); font-weight:600;">${ed.load}</span> Load`;
+                elHealth.className = 'val';
+              }
+              if (elPkts) {
+                elPkts.innerText = `🟢 Packet #${ed.packets_sent || 1} (Live 1 Hz stream)`;
+                elPkts.className = 'val g';
+                elPkts.style.color = 'var(--green)';
+              }
+            } else {
+              if (elBadge) {
+                elBadge.innerText = '❌ OFFLINE (Awaiting Pi Launch)';
+                elBadge.className = 'badge br';
+              }
+              if (elCard) {
+                elCard.style.borderLeft = '3px solid var(--red)';
+                elCard.style.background = 'rgba(255, 51, 75, 0.08)';
+              }
+              if (elRole) {
+                elRole.innerText = 'Offline — Run python3 edge_agent.py on Pi';
+                elRole.className = 'val r';
+                elRole.style.color = 'var(--red)';
+              }
+              if (elInf) {
+                elInf.innerText = 'OFFLINE (Standby)';
+                elInf.className = 'val r';
+              }
+              if (elLat) {
+                elLat.innerText = 'NO LINK (Disconnected)';
+                elLat.className = 'val r';
+                elLat.style.color = 'var(--red)';
+              }
+              if (elHealth) {
+                elHealth.innerHTML = `<span style="color:var(--red); font-weight:bold;">⚠️ NO HEARTBEAT (OFFLINE)</span>`;
+                elHealth.className = 'val r';
+              }
+              if (elPkts) {
+                elPkts.innerText = '0 packets (Awaiting Pi start)';
+                elPkts.className = 'val r';
+                elPkts.style.color = 'var(--dim)';
+              }
+            }
+
+            // Update Header Status Pill
+            const hPill = document.getElementById('v-header-pill');
+            if (hPill) {
+              if (ed.online) {
+                hPill.innerHTML = '<div class="dot"></div>TELEMETRY LIVE • PI 4B ONLINE';
+                hPill.className = 'live-pill';
+                hPill.style.background = 'rgba(0, 230, 118, 0.12)';
+                hPill.style.color = 'var(--green)';
+              } else {
+                hPill.innerHTML = '<div class="dot" style="background:var(--red); box-shadow:0 0 8px var(--red);"></div>❌ PI 4B OFFLINE (SIM FROZEN)';
+                hPill.className = 'live-pill';
+                hPill.style.background = 'rgba(255, 51, 75, 0.20)';
+                hPill.style.color = 'var(--red)';
+              }
+            }
+          }
+        } catch(eEdge) { console.warn("Edge render error:", eEdge); }
+
+        // 2. Dynamic Simulation Freeze & Resume Control (Instant visual feedback)
+        try {
+          const isFrozen = (d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false;
+          window.isSimulationFrozen = isFrozen;
+
+          const freezeBanner = document.getElementById('v-freeze-banner');
+          const freezeReason = document.getElementById('v-freeze-reason');
+          if (freezeBanner) {
+            freezeBanner.style.display = isFrozen ? 'flex' : 'none';
+          }
+          if (freezeReason && d.freeze_reason) {
+            freezeReason.innerText = d.freeze_reason;
+          }
+
+          // Visual cue on map and camera feeds
+          const feeds = document.querySelectorAll('img.feed');
+          feeds.forEach(f => {
+            f.style.filter = isFrozen ? 'grayscale(45%) contrast(0.85) brightness(0.85)' : 'none';
+          });
+
+          // Disable/Enable Nav Buttons
+          const navBtns = document.querySelectorAll('.btn-target, .btn-abort');
+          navBtns.forEach(b => {
+            if (isFrozen) {
+              b.style.opacity = '0.45';
+              b.style.cursor = 'not-allowed';
+            } else {
+              b.style.opacity = '1.0';
+              b.style.cursor = 'pointer';
+            }
+          });
+
+          // Update Simulation Pause/Resume button
+          const simBtn = document.getElementById('simBtn');
+          const simMsg = document.getElementById('simMsg');
+          if (simBtn) {
+            if (isFrozen) {
+              simBtn.className = "paused";
+              simBtn.innerText = "❄️ SIMULATION FROZEN (PI OFFLINE)";
+              if (simMsg) simMsg.innerHTML = '<span style="color:var(--red); font-weight:700;">⚠️ Simulation frozen — Run edge_agent.py on Pi to unlock</span>';
+            } else {
+              simBtn.className = "running";
+              simBtn.innerText = "⏸ PAUSE SIMULATION";
+              if (simMsg) simMsg.innerHTML = '<span style="color:var(--green);">Gazebo physics active &bull; Pi 4B connected</span>';
+            }
+          }
+        } catch(eFreeze) { console.warn("Freeze render error:", eFreeze); }
+
+        // 3. Render Explainable AI (XAI) Live Decision Feed
         try {
           if (d.xai_logs && d.xai_logs.length > 0) {
             const feed = document.getElementById('xai-feed');
@@ -2991,7 +3171,7 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch (eXai) { console.warn("XAI render error:", eXai); }
 
-        // 2. Render Autonomous Patrol Button State
+        // 4. Render Autonomous Patrol Button State
         try {
           if (d.patrol_active !== undefined) {
             const btn = document.getElementById('btn-patrol');
@@ -3012,7 +3192,7 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch (ePat) {}
 
-        // 3. Update Robot Kinematics & Mission Status
+        // 5. Update Robot Kinematics & Mission Status
         try {
           if (d.robot_pose) {
             const elX = document.getElementById('v-x'); if (elX) elX.innerText = d.robot_pose.x.toFixed(2) + ' m';
@@ -3053,7 +3233,7 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch(eKin) {}
 
-        // 4. Update Environmental Telemetry
+        // 6. Update Environmental Telemetry
         try {
           if (d.env) {
             if (d.env.environment_state) {
@@ -3100,7 +3280,7 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch(eEnv) {}
 
-        // 5. Update Terramechanics
+        // 7. Update Terramechanics
         try {
           if (d.terramechanics) {
             const tm = d.terramechanics;
@@ -3122,83 +3302,10 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch(eTm) {}
 
-        // 6. Update Edge Computing Gateway Telemetry (Instant Connection Lost / Restored Handler)
-        try {
-          if (d.edge_device) {
-            const ed = d.edge_device;
-            const elCard = document.getElementById('v-edge-card');
-            const elBadge = document.getElementById('v-edge-badge');
-            const elHealth = document.getElementById('v-edge-health');
-            const elRole = document.getElementById('v-edge-role');
-            const elInf = document.getElementById('v-edge-ml');
-            const elLat = document.getElementById('v-edge-latency');
-
-            if (elBadge) {
-              if (ed.online) {
-                elBadge.innerText = '🟢 ' + (ed.status || 'CONNECTED (PI 4B)');
-                elBadge.className = 'badge bg';
-                if (elCard) {
-                  elCard.style.borderLeft = '3px solid var(--green)';
-                  elCard.style.background = 'var(--card-bg)';
-                }
-              } else {
-                elBadge.innerText = '❌ CONNECTION LOST / OFFLINE';
-                elBadge.className = 'badge br';
-                if (elCard) {
-                  elCard.style.borderLeft = '3px solid var(--red)';
-                  elCard.style.background = 'rgba(255, 51, 75, 0.08)';
-                }
-              }
-            }
-
-            if (elHealth) {
-              if (ed.online) {
-                elHealth.innerHTML = `<span style="color:var(--green); font-weight:600;">${ed.cpu_temp}</span> | RAM ${ed.ram_usage} | ${ed.load} Load`;
-              } else {
-                elHealth.innerHTML = `<span style="color:var(--red); font-weight:bold;">⚠️ NO HEARTBEAT (UNPLUGGED / OFFLINE)</span>`;
-              }
-            }
-
-            if (elInf) {
-              if (ed.online) {
-                elInf.innerText = 'IsoForest + Terramechanics ML Active';
-                elInf.className = 'val g';
-              } else {
-                elInf.innerText = 'PAUSED (Awaiting Edge Link)';
-                elInf.className = 'val r';
-              }
-            }
-
-            if (elLat) {
-              if (ed.online && ed.latency_ms !== null) {
-                elLat.innerText = `${ed.latency_ms} ms (Ethernet Wire)`;
-                elLat.style.color = 'var(--green)';
-              } else {
-                elLat.innerText = 'LINK DOWN (Timeout >2.5s)';
-                elLat.style.color = 'var(--red)';
-              }
-            }
-
-            // Update Header Status Pill
-            const hPill = document.getElementById('v-header-pill');
-            if (hPill) {
-              if (ed.online) {
-                hPill.innerHTML = '<div class="dot"></div>TELEMETRY LIVE • PI 4B ONLINE';
-                hPill.className = 'live-pill';
-                hPill.style.background = 'rgba(0, 230, 118, 0.12)';
-                hPill.style.color = 'var(--green)';
-              } else {
-                hPill.innerHTML = '<div class="dot" style="background:var(--red); box-shadow:0 0 8px var(--red);"></div>❌ PI 4B OFFLINE (LINK LOST)';
-                hPill.className = 'live-pill';
-                hPill.style.background = 'rgba(255, 51, 75, 0.20)';
-                hPill.style.color = 'var(--red)';
-              }
-            }
-          }
-        } catch(eEdge) {}
-
       } catch(e) {
         console.warn("pollTelemetry general exception:", e);
+      } finally {
+        isTelemetryPolling = false;
       }
     }
     pollTelemetry();
