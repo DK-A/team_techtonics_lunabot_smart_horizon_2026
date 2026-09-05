@@ -481,7 +481,19 @@ class WebTelemetryNode(Node):
 
     def edge_health_cb(self, msg):
         try:
-            self.last_edge_health = json.loads(msg.data)
+            data = json.loads(msg.data)
+            if not data.get("online", True):
+                self.last_edge_health = None
+                self._last_edge_health_time = 0.0
+                self.set_simulation_freeze(True, "Raspberry Pi 4B Edge Node stopped")
+                return
+
+            prev = getattr(self, 'last_edge_health', None)
+            if not prev or not getattr(self, '_prev_edge_online', False):
+                self.log_xai("MISSION", "SUCCESS", f"Physical Raspberry Pi 4B Edge Gateway handshake confirmed via ROS 2 DDS! Connected from {data.get('device', 'Pi 4B')}.")
+            self.last_edge_health = data
+            self._last_edge_health_time = time.time()
+            self.set_simulation_freeze(False, "Raspberry Pi 4B online ROS 2 heartbeat received")
         except Exception:
             pass
 

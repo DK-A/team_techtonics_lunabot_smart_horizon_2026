@@ -17,7 +17,14 @@ import signal
 import urllib.request
 import urllib.error
 
-DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://10.42.0.1:8080/api/edge_telemetry")
+DEFAULT_CANDIDATES = [
+    os.environ.get("DASHBOARD_URL", "").strip(),
+    "http://10.42.0.1:8080/api/edge_telemetry",
+    "http://10.152.1.243:8080/api/edge_telemetry",
+    "http://localhost:8080/api/edge_telemetry"
+]
+CANDIDATE_URLS = [u for u in DEFAULT_CANDIDATES if u]
+ACTIVE_URL = CANDIDATE_URLS[0]
 
 def get_cpu_temp() -> float:
     temp_file = "/sys/class/thermal/thermal_zone0/temp"
@@ -62,26 +69,28 @@ def check_models():
 
 def notify_disconnect():
     """Send graceful disconnect notice to dashboard on Ctrl+C"""
-    try:
-        payload = {
-            "online": False,
-            "status": "OFFLINE (Agent Stopped)",
-            "device": "Raspberry Pi 4 Model B (Physical)",
-            "cpu_temp": "OFFLINE",
-            "ram_usage": "--",
-            "load": "--",
-            "role": "Agent Stopped by Operator (Ctrl+C)",
-            "inference": "Halted",
-            "packets_sent": 0
-        }
-        req = urllib.request.Request(
-            DASHBOARD_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
-        )
-        urllib.request.urlopen(req, timeout=0.8)
-    except Exception:
-        pass
+    payload = {
+        "online": False,
+        "status": "OFFLINE (Agent Stopped)",
+        "device": "Raspberry Pi 4 Model B (Physical)",
+        "cpu_temp": "OFFLINE",
+        "ram_usage": "--",
+        "load": "--",
+        "role": "Agent Stopped by Operator (Ctrl+C)",
+        "inference": "Halted",
+        "packets_sent": 0
+    }
+    for url in CANDIDATE_URLS:
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            urllib.request.urlopen(req, timeout=0.6)
+            break
+        except Exception:
+            pass
 
 def sigint_handler(sig, frame):
     print("\n\n🛑 [STOP] Operator terminated edge agent (Ctrl+C).")
@@ -93,14 +102,17 @@ def sigint_handler(sig, frame):
 signal.signal(signal.SIGINT, sigint_handler)
 
 def main():
+    global ACTIVE_URL
     print("=========================================================================")
     print(" 🌕 LUNABOT: RASPBERRY PI 4B EDGE COMPUTING & TELEMETRY AGENT")
     print("=========================================================================")
-    print(f" 📡 Target Dashboard: {DASHBOARD_URL}")
     print(f" 🖥️  Hardware:         Broadcom BCM2711 ARM Cortex-A72 Quad-Core @ 1.5 GHz")
     print(f" 🧠 Edge ML Engine:   {check_models()}")
     print("=========================================================================")
-    print(" Connecting to Mission Control at 10.42.0.1:8080...")
+    print(" Probing Mission Control endpoints:")
+    for u in CANDIDATE_URLS:
+        print(f"   • {u}")
+    print("=========================================================================")
 
     start_time = time.time()
     packet_count = 0
@@ -127,20 +139,32 @@ def main():
                 "packets_sent": packet_count
             }
 
-            t0 = time.perf_counter()
-            req = urllib.request.Request(
-                DASHBOARD_URL,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req, timeout=1.5) as resp:
-                pass
-            dt_ms = (time.perf_counter() - t0) * 1000.0
+            # Try ACTIVE_URL first, then fallback to other candidates
+            sent = False
+            err_msg = ""
+            order = [ACTIVE_URL] + [u for u in CANDIDATE_URLS if u != ACTIVE_URL]
 
-            print(f"\r 🟢 [PACKET #{packet_count}] CPU: {temp}°C | RAM: {ram} | Load: {load} | Ping: {dt_ms:.2f}ms | Status: STREAMING   ", end="", flush=True)
+            for url in order:
+                t0 = time.perf_counter()
+                try:
+                    req = urllib.request.Request(
+                        url,
+                        data=json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"}
+                    )
+                    with urllib.request.urlopen(req, timeout=1.2) as resp:
+                        pass
+                    dt_ms = (time.perf_counter() - t0) * 1000.0
+                    ACTIVE_URL = url
+                    sent = True
+                    print(f"\r 🟢 [PACKET #{packet_count}] CPU: {temp}°C | RAM: {ram} | Load: {load} | Ping: {dt_ms:.2f}ms | Target: {url}   ", end="", flush=True)
+                    break
+                except Exception as ex:
+                    err_msg = str(ex)
 
-        except urllib.error.URLError:
-            print(f"\r ⏳ [PACKET #{packet_count}] Waiting for Mission Control at {DASHBOARD_URL}...                      ", end="", flush=True)
+            if not sent:
+                print(f"\r ⏳ [PACKET #{packet_count}] Waiting for Mission Control at {order[0]} ({err_msg})...   ", end="", flush=True)
+
         except Exception as e:
             print(f"\r ⚠️ [PACKET #{packet_count}] Notice: {e}                                                             ", end="", flush=True)
 
