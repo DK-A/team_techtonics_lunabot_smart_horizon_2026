@@ -258,9 +258,9 @@ class WebTelemetryNode(Node):
                 try:
                     now = time.time()
                     if self._last_edge_health_time > 0.0:
-                        if (now - self._last_edge_health_time) > 1.8:
+                        if (now - self._last_edge_health_time) > 3.5:
                             if not self.simulation_frozen:
-                                self.set_simulation_freeze(True, "Raspberry Pi 4B link lost / heartbeat timeout (>1.8s)")
+                                self.set_simulation_freeze(True, "Raspberry Pi 4B link lost / heartbeat timeout (>3.5s)")
                             self.last_edge_health = None
                             self._last_edge_health_time = 0.0
                     else:
@@ -335,6 +335,8 @@ class WebTelemetryNode(Node):
         """
         with self._freeze_lock:
             state_changed = (self.simulation_frozen != freeze)
+            if not state_changed:
+                return
             self.simulation_frozen = freeze
             self.freeze_reason = reason
 
@@ -1597,10 +1599,10 @@ def get_telemetry():
             "traction_mitigation_active": (slip > 0.50)
         }
 
-    # Instant Watchdog for Physical Raspberry Pi 4B Connection (Timeout: 1.8s)
+    # Instant Watchdog for Physical Raspberry Pi 4B Connection (Timeout: 3.5s)
     last_edge_time = getattr(telemetry_node, '_last_edge_health_time', 0.0)
     is_frozen = getattr(telemetry_node, 'simulation_frozen', True)
-    edge_online = (not is_frozen) and ((now_t - last_edge_time) < 1.8) and (last_edge_time > 0.0)
+    edge_online = (not is_frozen) and ((now_t - last_edge_time) < 3.5) and (last_edge_time > 0.0)
 
     # Trigger XAI alerts on connection state changes
     prev_online = getattr(telemetry_node, '_prev_edge_online', None)
@@ -1615,7 +1617,7 @@ def get_telemetry():
                         telemetry_node.cmd_vel_pub.publish(Twist())
                 except Exception:
                     pass
-            telemetry_node.log_xai("EDGE", "CRITICAL", "Physical Raspberry Pi 4B Edge Gateway connection LOST! Ethernet link unplugged or heartbeat timeout (>1.8s). Drive motors locked in failsafe hold.")
+            telemetry_node.log_xai("EDGE", "CRITICAL", "Physical Raspberry Pi 4B Edge Gateway connection LOST! Ethernet link unplugged or heartbeat timeout (>3.5s). Drive motors locked in failsafe hold.")
     telemetry_node._prev_edge_online = edge_online
 
     raw_edge = getattr(telemetry_node, 'last_edge_health', None)

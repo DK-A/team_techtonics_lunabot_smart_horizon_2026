@@ -168,7 +168,7 @@ def main():
         except Exception as e:
             print(f"\r ⚠️ [PACKET #{packet_count}] Notice: {e}                                                             ", end="", flush=True)
 
-        time.sleep(1.0)
+        time.sleep(0.35)
 
 if __name__ == "__main__":
     main()
