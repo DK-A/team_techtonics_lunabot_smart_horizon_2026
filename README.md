@@ -243,23 +243,37 @@ $$Z = \frac{f \cdot B}{d}$$
 
 ## 🚀 Turnkey Deployment & Quickstart Guide
 
-### Step 1: Workstation Simulation & Autonomy Bringup
-In Terminal 1 on your host laptop:
+### ⚡ Single-Command Full Demonstration (Recommended)
+Launch the entire workstation stack (Gazebo Sim 8, SLAM Toolbox, Nav2, SGBM 3D Depth, and Web Mission Control) with a single command:
+```bash
+cd ~/Desktop/SMART_HORIZON/LUNA_PRO
+./run_demo.sh
+```
+* Automatically spawns Gazebo lunar environment, ROS 2 autonomy stack, and ground station.
+* Automatically opens your default web browser to **`http://localhost:8080`**.
+* Initializes in **FROZEN** mode awaiting the physical Raspberry Pi 4B link.
+
+---
+
+### 🛠️ Modular Multi-Terminal Launch (Alternative)
+
+#### Terminal 1 (Workstation Autonomy & Gazebo):
 ```bash
 source /opt/ros/humble/setup.bash
 source ~/Desktop/SMART_HORIZON/LUNA_PRO/ros2_ws/install/setup.bash
 ros2 launch lunabot_bringup lunabot_bringup.launch.py launch_gazebo:=true slam:=true nav2:=true web:=false
 ```
 
-### Step 2: Launch Web Mission Control
-In Terminal 2 on your host laptop:
+#### Terminal 2 (Web Mission Control Ground Station):
 ```bash
 cd ~/Desktop/SMART_HORIZON/LUNA_PRO
 ./run_dashboard.sh
 ```
-Open your browser at **`http://localhost:8080`** (or access from another device on the network at `http://10.42.0.1:8080`).
+Open **`http://localhost:8080`** in your browser.
 
-### Step 3: Raspberry Pi 4B Edge Gateway & Hardware-in-the-Loop Bringup
+---
+
+### Step 2: Raspberry Pi 4B Edge Gateway Bringup
 
 #### Option A: Direct Terminal Execution (Recommended for Live Evaluation)
 Log into your physical Raspberry Pi 4B (`ssh techtonics@10.42.0.91`) and run the edge agent directly in the foreground:
@@ -290,7 +304,8 @@ team_techtonics_lunabot_smart_horizon_2026/
 ├── LICENSE                             # Apache 2.0 Open-Source License
 ├── README.md                           # Executive publication README (Specs, Novelty, R&D, Math, Architecture)
 ├── requirements.txt                    # Standardized Python dependencies (FastAPI, scikit-learn, numpy, opencv)
-├── run_dashboard.sh                    # Turnkey Web Mission Control launcher script
+├── run_demo.sh                         # Single-command full demo launcher (Gazebo + ROS 2 + Web HUD)
+├── run_dashboard.sh                    # Web Mission Control standalone launcher script
 │
 ├── docs/                               # Engineering Documentation & Architecture Whitepapers
 │   ├── ARCHITECTURE.md                 # Distributed ROS 2 DDS & Edge Gateway architecture deep dive
