@@ -420,6 +420,27 @@
           }
         } catch (ePat) {}
 
+        // Render Obstacle Demo Button State
+        try {
+          if (d.obstacle_demo_active !== undefined) {
+            const btnObs = document.getElementById('btn-obstacle-demo');
+            if (btnObs) {
+              isObstacleDemoRunning = d.obstacle_demo_active;
+              if (d.obstacle_demo_active) {
+                btnObs.innerText = '🛑 STOP OBSTACLE DEMO';
+                btnObs.style.background = 'rgba(255, 51, 75, 0.22)';
+                btnObs.style.borderColor = 'var(--red)';
+                btnObs.style.color = 'var(--red)';
+              } else {
+                btnObs.innerText = '🛡️ OBSTACLE PASS-OVER DEMO';
+                btnObs.style.background = 'rgba(0, 229, 255, 0.16)';
+                btnObs.style.borderColor = 'var(--cyan)';
+                btnObs.style.color = 'var(--cyan)';
+              }
+            }
+          }
+        } catch (eObs) {}
+
         // 5. Update Robot Kinematics & Mission Status
         try {
           if (d.robot_pose) {
@@ -558,6 +579,30 @@
         }
       } catch (e) {
         console.error("Patrol toggle error:", e);
+      }
+    }
+
+    let isObstacleDemoRunning = false;
+    async function toggleObstacleDemo() {
+      if (window.isSimulationFrozen && !isObstacleDemoRunning) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nObstacle Avoidance Demo requires the physical Raspberry Pi 4B flight computer.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to activate.");
+        return;
+      }
+      const endpoint = isObstacleDemoRunning ? '/api/obstacle_demo/stop' : '/api/obstacle_demo/start';
+      try {
+        const res = await fetch(endpoint, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          isObstacleDemoRunning = data.obstacle_demo_active;
+          const toast = document.getElementById('navToast');
+          if (toast) {
+            toast.innerText = isObstacleDemoRunning ? "🛡️ Obstacle Pass-Over Demo Activated — Generating Tangential Avoidance Arc" : "🛑 Obstacle Demo Stopped";
+          }
+        } else if (data.error) {
+          alert("Obstacle Demo Error: " + data.error);
+        }
+      } catch (e) {
+        console.error("Obstacle demo toggle error:", e);
       }
     }
 

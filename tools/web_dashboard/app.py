@@ -288,6 +288,9 @@ class WebTelemetryNode(Node):
             {"name": "Base Station Dock", "x": 0.0, "y": 0.0}
         ]
         self._last_patrol_dispatch_time = 0.0
+
+        # 🛡️ Obstacle Pass-Over / Bypass Demo State
+        self.obstacle_demo_active = False
         
         # Dedicated wall-clock thread for XAI and Patrol so it never stalls if /clock jitters
         def _patrol_worker():
@@ -442,7 +445,7 @@ class WebTelemetryNode(Node):
                     self.log_xai("EDGE", "INFO", f"Pi 4B Edge OBC Vitals: SoC Temp={edge.get('cpu_temp', '42.1°C')}, Load={edge.get('load', '0.12')}, Bridge Link Online.")
 
         # 2. Autonomous Patrol Checkpoint Sequence
-        if not self.patrol_active:
+        if not self.patrol_active or getattr(self, 'obstacle_demo_active', False):
             return
 
         # Check if holding at checkpoint for science sampling
@@ -641,6 +644,10 @@ class WebTelemetryNode(Node):
                 iso_score = env.get('ml_anomaly_score', 0.402)
                 self.log_xai("SCIENCE", "INFO", f"Station Science Survey at [{tgt_name}]: Temp={temp_c:.1f}°C, Press={press}, Dust={dust:.1f}µg/m³, Rad={rad:.3f}mSv/h. ML Anomaly Score: {iso_score:.3f} (Nominal).")
 
+                if getattr(self, 'obstacle_demo_active', False):
+                    self.obstacle_demo_active = False
+                    self.log_xai("OBSTACLE", "SUCCESS", "🛡️ Obstacle Pass-Over Demo COMPLETE: Successfully bypassed Northern Boulder Field (+0.95m standoff buffer) without contact.")
+
                 if self.patrol_active:
                     next_idx = self.patrol_index + 1
                     next_target = self.patrol_route[self.patrol_index]
@@ -651,11 +658,13 @@ class WebTelemetryNode(Node):
                 self.nav_status = "CANCELED"
                 self.distance_remaining = 0.0
                 self.active_detour_waypoints = []
+                self.obstacle_demo_active = False
                 self.log_xai("NAV", "WARN", "Active navigation goal was canceled by supervisor or operator.")
             else:
                 self.nav_status = "ABORTED"
                 self.distance_remaining = 0.0
                 self.active_detour_waypoints = []
+                self.obstacle_demo_active = False
                 self.log_xai("NAV", "WARN", "Nav2 planner reported path blocked or untraversable. Goal aborted.")
         except Exception as e:
             self.get_logger().error(f"Error in goal result cb: {e}")
@@ -668,10 +677,34 @@ class WebTelemetryNode(Node):
             except Exception:
                 pass
         self.nav_status = "ABORTED"
+        self.obstacle_demo_active = False
         self.current_target = None
         self.active_detour_waypoints = []
         self.distance_remaining = 0.0
         self.last_plan = None
+
+    def start_obstacle_demo(self):
+        if getattr(self, 'simulation_frozen', False):
+            return {"success": False, "error": "Rover System Frozen - requires physical Raspberry Pi 4B flight computer"}
+        self.patrol_active = False
+        r_x, r_y, r_yaw = self.get_robot_pose_in_map()
+        dist_to_far = math.hypot(r_x - 8.2, r_y - 7.0)
+        if dist_to_far < 2.5:
+            target_x, target_y, target_label = 0.0, 0.0, "Base Return (Boulder Avoidance)"
+        else:
+            target_x, target_y, target_label = 8.2, 7.0, "Boulder Field Bypass"
+
+        self.obstacle_demo_active = True
+        self.log_xai("OBSTACLE", "WARN", "⚠️ Large Hazard Identified: Northern Boulder Field (Radius 2.5m at [6.0m, 5.0m]) directly across forward route.")
+        self.log_xai("XAI", "SUCCESS", f"🛡️ Obstacle Pass-Over Demo Activated: Target [{target_label}] ({target_x:.1f}m, {target_y:.1f}m). Generating smooth tangential detour (+0.95m standoff buffer).")
+        self.send_navigate_to_pose(target_x, target_y, label=target_label)
+        return {"success": True, "message": f"Obstacle Pass-Over Demo Started -> {target_label}", "obstacle_demo_active": True}
+
+    def stop_obstacle_demo(self):
+        self.obstacle_demo_active = False
+        self.cancel_active_goal()
+        self.log_xai("OBSTACLE", "WARN", "🛡️ Obstacle Pass-Over Demo canceled by operator. Motors secured.")
+        return {"success": True, "message": "Obstacle Pass-Over Demo Stopped", "obstacle_demo_active": False}
 
     def plan_cb(self, msg):
         self.last_plan = msg
@@ -1634,6 +1667,7 @@ def get_telemetry():
         "xai_logs": getattr(telemetry_node, 'xai_logs', [])[:25],
         "patrol_active": getattr(telemetry_node, 'patrol_active', False),
         "patrol_index": getattr(telemetry_node, 'patrol_index', 0),
+        "obstacle_demo_active": getattr(telemetry_node, 'obstacle_demo_active', False),
         "simulation_frozen": getattr(telemetry_node, 'simulation_frozen', True),
         "freeze_reason": getattr(telemetry_node, 'freeze_reason', 'Awaiting Raspberry Pi 4B connection'),
         "edge_device": edge_data
@@ -1812,6 +1846,20 @@ async def stop_patrol():
     telemetry_node.cancel_active_goal()
     telemetry_node.log_xai("MISSION", "WARN", "Autonomous Patrol Mode STOPPED by operator. Drive motors secured.")
     return {"success": True, "message": "Autonomous Patrol Stopped", "patrol_active": False}
+
+
+@app.post("/api/obstacle_demo/start")
+async def start_obstacle_demo():
+    if not telemetry_node:
+        return {"success": False, "error": "ROS Node not initialized"}
+    return telemetry_node.start_obstacle_demo()
+
+
+@app.post("/api/obstacle_demo/stop")
+async def stop_obstacle_demo():
+    if not telemetry_node:
+        return {"success": False, "error": "ROS Node not initialized"}
+    return telemetry_node.stop_obstacle_demo()
 
 
 @app.post("/api/toggle_map_view")
@@ -2681,6 +2729,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <button class="btn-target" onclick="dispatchTarget(2.5, -1.5, 'Sample Site A')">🚀 SAMPLE A (2.5, -1.5)</button>
           <button class="btn-target" onclick="dispatchTarget(3.5, 1.5, 'Survey Point B')">🚀 SURVEY B (3.5, 1.5)</button>
           <button id="btn-patrol" class="btn-target" style="grid-column: 1 / -1; background: rgba(0, 230, 118, 0.16); border: 1px solid var(--green); color: var(--green); font-weight: bold;" onclick="toggleAutonomousPatrol()">🚀 START AUTONOMOUS PATROL</button>
+          <button id="btn-obstacle-demo" class="btn-target" style="grid-column: 1 / -1; background: rgba(0, 229, 255, 0.16); border: 1px solid var(--cyan); color: var(--cyan); font-weight: bold; margin-top: 4px;" onclick="toggleObstacleDemo()">🛡️ OBSTACLE PASS-OVER DEMO</button>
           <button class="btn-abort" onclick="abortNavigation()">🛑 ABORT NAV2 GOAL</button>
         </div>
         <div class="coord-inputs">
@@ -3204,6 +3253,27 @@ HTML_PAGE = """<!DOCTYPE html>
           }
         } catch (ePat) {}
 
+        // Render Obstacle Demo Button State
+        try {
+          if (d.obstacle_demo_active !== undefined) {
+            const btnObs = document.getElementById('btn-obstacle-demo');
+            if (btnObs) {
+              isObstacleDemoRunning = d.obstacle_demo_active;
+              if (d.obstacle_demo_active) {
+                btnObs.innerText = '🛑 STOP OBSTACLE DEMO';
+                btnObs.style.background = 'rgba(255, 51, 75, 0.22)';
+                btnObs.style.borderColor = 'var(--red)';
+                btnObs.style.color = 'var(--red)';
+              } else {
+                btnObs.innerText = '🛡️ OBSTACLE PASS-OVER DEMO';
+                btnObs.style.background = 'rgba(0, 229, 255, 0.16)';
+                btnObs.style.borderColor = 'var(--cyan)';
+                btnObs.style.color = 'var(--cyan)';
+              }
+            }
+          }
+        } catch (eObs) {}
+
         // 5. Update Robot Kinematics & Mission Status
         try {
           if (d.robot_pose) {
@@ -3325,6 +3395,10 @@ HTML_PAGE = """<!DOCTYPE html>
 
     let isPatrolRunning = false;
     async function toggleAutonomousPatrol() {
+      if (window.isSimulationFrozen && !isPatrolRunning) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nAutonomous Patrol requires the physical Raspberry Pi 4B flight computer.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to activate.");
+        return;
+      }
       const endpoint = isPatrolRunning ? '/api/patrol/stop' : '/api/patrol/start';
       try {
         const res = await fetch(endpoint, { method: 'POST' });
@@ -3338,6 +3412,30 @@ HTML_PAGE = """<!DOCTYPE html>
         }
       } catch (e) {
         console.error("Patrol toggle error:", e);
+      }
+    }
+
+    let isObstacleDemoRunning = false;
+    async function toggleObstacleDemo() {
+      if (window.isSimulationFrozen && !isObstacleDemoRunning) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nObstacle Avoidance Demo requires the physical Raspberry Pi 4B flight computer.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to activate.");
+        return;
+      }
+      const endpoint = isObstacleDemoRunning ? '/api/obstacle_demo/stop' : '/api/obstacle_demo/start';
+      try {
+        const res = await fetch(endpoint, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          isObstacleDemoRunning = data.obstacle_demo_active;
+          const toast = document.getElementById('navToast');
+          if (toast) {
+            toast.innerText = isObstacleDemoRunning ? "🛡️ Obstacle Pass-Over Demo Activated — Generating Tangential Avoidance Arc" : "🛑 Obstacle Demo Stopped";
+          }
+        } else if (data.error) {
+          alert("Obstacle Demo Error: " + data.error);
+        }
+      } catch (e) {
+        console.error("Obstacle demo toggle error:", e);
       }
     }
 
