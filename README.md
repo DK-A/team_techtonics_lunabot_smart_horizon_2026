@@ -23,7 +23,9 @@
 [💾 Database Architecture](#-backend-database-architecture) •
 [🔬 R&D Formulations](#-rd-mathematical-formulations) •
 [📊 Benchmarks](#-benchmarks--verification-metrics) •
+[🎯 PS Alignment](#-problem-statement-alignment--engineering-verification) •
 [📂 Repository Structure](#-repository-structure)
+
 
 ---
 
@@ -165,9 +167,9 @@ Extracted directly from CAD engineering models (`LB.blend`) and verified Gazebo 
 - **The Problem**: Black-box autonomous decisions create severe hazards for astronauts and flight controllers.
 - **The Solution**: Every motor throttle change, hazard stop, or science dwell generates transparent, human-readable English rationale in a real-time audit feed. Furthermore, a dual-engine conversational Copilot (Scikit-Learn TF-IDF N-gram vector space + Google Gemini 1.5 Flash LLM) allows astronauts to query the rover in plain English and receive answers grounded in live telemetry.
 
-### 🔌 Novelty 6: 2.5-Second Hardware Watchdog & Fail-Safe Auto-Reconnect
-- **The Problem**: Unplugged cables, signal jamming, or rebooting computers can cause runaway rovers.
-- **The Solution**: An active 2.5-second hardware watchdog halts motors instantly if edge heartbeats cease, and re-engages autonomously within 2 seconds upon reconnect.
+### 🔌 Novelty 6: Sub-Second Hardware Watchdog & Simulation-Rover Freeze Sync
+- **The Problem**: Disconnected flight computers, power brownouts, or lost telemetry bridges during uncrewed exploration can lead to runaway rovers or undetected failures.
+- **The Solution**: An active **10 Hz hardware watchdog** continuously verifies the physical Raspberry Pi 4B link. If the heartbeat drops for $>1.8\text{s}$ (or $<10\text{ ms}$ on operator `Ctrl+C`), the ground station automatically pauses Gazebo physics, clamps rover motors to $0.0\text{ m/s}$, and locks autonomous navigation. When the Pi reconnects, physics and autonomous navigation unlock seamlessly.
 
 ---
 
@@ -234,7 +236,7 @@ $$Z = \frac{f \cdot B}{d}$$
 | **Edge Memory Footprint (RAM)** | **14.2 MB** | 450.0 MB | **31x lighter footprint** |
 | **Stereo Depth Framerate (SGBM)** | **36 FPS** | 12 FPS | **3x real-time throughput** |
 | **LiDAR Proximity Sweep Latency** | **12.5 ms** | 80.0 ms | **6.4x faster detection** |
-| **Hardware Watchdog Fail-Safe Trigger** | **2.50 s** | None (Manual abort) | **100% fail-safe autonomy** |
+| **Hardware Watchdog Fail-Safe Trigger** | **<1.80 s (<10ms Ctrl+C)** | None (Manual abort) | **100% fail-safe autonomy** |
 | **Direct Ethernet Round-Trip Ping** | **0.18 ms** | 2600.0 ms (Lunar delay)| **14,000x latency bypass** |
 
 ---
@@ -348,18 +350,16 @@ team_techtonics_lunabot_smart_horizon_2026/
 
 ---
 
-## 🎤 Hackathon Jury & Evaluator Talking Points
+## 🎯 Problem Statement Alignment & Engineering Verification
 
-When presenting to judges and technical evaluators:
-
-1. **"Why use an Edge Computer?"**:
-   > *"In space exploration, radio signals between the Moon and Earth experience a 2.6-second round-trip latency. If a rover begins slipping down a crater wall or encounters an unexpected gas fissure, waiting for Earth ground control would result in a catastrophic loss of the rover. By deploying our trained Scikit-Learn Isolation Forest and Terramechanics models directly onto the Raspberry Pi 4B ARM processor, safety-critical anomaly detection and slip mitigation occur locally in under 1 millisecond."*
-
-2. **"What role does each ML model play?"**:
-   > *"Our Terramechanics Random Forest uses Bekker-Wong soil mechanics to classify terrain into 6 actionable traction states with 99.86% accuracy, autonomously mitigating motor torque before the rover gets stuck. Our Isolation Forest runs unsupervised exosphere anomaly detection calibrated on NASA LADEE data, detecting subsurface volatile outgassing and triggering science dwells without human intervention."*
-
-3. **"How is the telemetry and mission data managed?"**:
-   > *"We employ an aerospace-grade multi-tier data pipeline: an in-memory hot ring buffer for real-time 10 Hz web streaming, an embedded SQLite3 database with Write-Ahead Logging (WAL) for persistent time-series indexing and XAI decision audit trails, and ROS 2 MCAP binary flight blackbox recording for full mission playback."*
+| Challenge Requirement (PS 2026) | LunaBot Engineered Solution | Verification & Novelty Metric |
+| :--- | :--- | :--- |
+| **Lunar South Pole Terrain Traversal** | 6-Wheel Rocker-Bogie kinematic suspension with differential averaging bar, 6 in-hub BLDC motors, and 15mm chevron grousers | Climbs vertical rocks up to **25 cm**; rollover stability up to **$38^\circ$** with ultra-low CoM ($-0.14\text{m}$) |
+| **Subsurface Volatile & Gas Prospecting** | Pure NumPy Isolation Forest model calibrated against Apollo/LADEE exosphere telemetry | Autonomous science dwell triggered when anomaly score $>0.5377$; **1.18 ms** inference |
+| **Bypassing 2.6s Earth-Moon Radio Delay** | Distributed dual-tier architecture: Local physical Raspberry Pi 4B OBC executes critical inference | Real-time edge inference in **0.82 ms**; **14,000x latency reduction** compared to ground control |
+| **Regolith Sinkage & Wheel Entrapment** | Physics-informed Random Forest classifier trained on Bekker-Wong soil mechanics equations | **99.86% classification accuracy** across 6 slip states; autonomous torque mitigation |
+| **Flight Computer Failsafe & Reliability** | 10 Hz hardware watchdog and bidirectional simulation freeze synchronizer | **<1.8s automatic halt** upon link loss; **<10 ms** graceful freeze on operator abort |
+| **Transparent Autonomy & Operator Oversight** | Explainable AI (XAI) Natural Language Copilot + Multi-Tier Ground Station HUD | Real-time plain-English decision audits; vector semantic search + Gemini 1.5 Flash grounded in live telemetry |
 
 ---
 
@@ -370,3 +370,4 @@ Developed by **Team Techtonics** for the **Smart Horizon 2026 Lunar Autonomy Cha
 - **Lead Systems & Autonomy Architecture**: Team Techtonics
 - **Frameworks & Tooling**: ROS 2 Humble, Gazebo Sim 8, FastAPI, Scikit-Learn, OpenCV, NumPy
 - **License**: Released under the [Apache 2.0 License](LICENSE).
+
