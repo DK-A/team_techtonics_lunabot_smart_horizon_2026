@@ -433,16 +433,17 @@
       </div>
 
       <!-- 📟 Raspberry Pi 4B Edge Computing & Bridge Telemetry -->
-      <div id="v-edge-card" class="tel-card" style="border-left: 3px solid var(--cyan); transition: all 0.3s ease;">
+      <div id="v-edge-card" class="tel-card" style="border-left: 3px solid var(--red); background: rgba(255, 51, 75, 0.05); transition: all 0.3s ease;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <h2 style="margin-bottom:0;">📟 RPi 4B Edge Gateway</h2>
-          <span id="v-edge-badge" class="badge br" style="font-size:0.65rem;">AWAITING PI LINK</span>
+          <span id="v-edge-badge" class="badge br" style="font-size:0.65rem;">🔴 OFFLINE (Run 'python3 edge_agent.py')</span>
         </div>
         <div class="row"><span class="lbl">Hardware Architecture</span><span class="val c">ARM Cortex-A72 (Pi 4B)</span></div>
-        <div class="row"><span class="lbl">Edge Role</span><span class="val b" id="v-edge-role" style="font-size:0.72rem; color:var(--cyan);">Physical OBC &amp; ML Edge</span></div>
-        <div class="row"><span class="lbl">Onboard Inference</span><span class="val g" id="v-edge-ml">IsoForest + Terramechanics</span></div>
-        <div class="row"><span class="lbl">Bridge Link Latency</span><span class="val y" id="v-edge-latency">0.18 ms (Ethernet)</span></div>
-        <div class="row"><span class="lbl">Edge CPU Health</span><span class="val c" id="v-edge-health">-- | RAM -- | -- Load</span></div>
+        <div class="row"><span class="lbl">Edge Role</span><span class="val r" id="v-edge-role" style="font-size:0.72rem; color:var(--red);">Offline — Run 'python3 edge_agent.py' on Pi</span></div>
+        <div class="row"><span class="lbl">Onboard Inference</span><span class="val r" id="v-edge-ml">OFFLINE (Standby)</span></div>
+        <div class="row"><span class="lbl">Bridge Link Latency</span><span class="val r" id="v-edge-latency">NO LINK (Disconnected)</span></div>
+        <div class="row"><span class="lbl">Edge CPU Health</span><span class="val r" id="v-edge-health">OFFLINE (-- °C | RAM -- | -- Load)</span></div>
+        <div class="row"><span class="lbl">Telemetry Stream</span><span class="val r" id="v-edge-packets">0 packets received</span></div>
       </div>
 
       <!-- Active Safety Zones -->
@@ -851,50 +852,72 @@
             const elRole = document.getElementById('v-edge-role');
             const elInf = document.getElementById('v-edge-ml');
             const elLat = document.getElementById('v-edge-latency');
+            const elPkts = document.getElementById('v-edge-packets');
 
-            if (elBadge) {
-              if (ed.online) {
-                elBadge.innerText = '🟢 ' + (ed.status || 'CONNECTED (PI 4B)');
+            if (ed.online) {
+              if (elBadge) {
+                elBadge.innerText = '🟢 ' + (ed.status || 'CONNECTED (LIVE PI 4B)');
                 elBadge.className = 'badge bg';
-                if (elCard) {
-                  elCard.style.borderLeft = '3px solid var(--green)';
-                  elCard.style.background = 'var(--card-bg)';
-                }
-              } else {
-                elBadge.innerText = '❌ CONNECTION LOST / OFFLINE';
-                elBadge.className = 'badge br';
-                if (elCard) {
-                  elCard.style.borderLeft = '3px solid var(--red)';
-                  elCard.style.background = 'rgba(255, 51, 75, 0.08)';
-                }
               }
-            }
-
-            if (elHealth) {
-              if (ed.online) {
-                elHealth.innerHTML = `<span style="color:var(--green); font-weight:600;">${ed.cpu_temp}</span> | RAM ${ed.ram_usage} | ${ed.load} Load`;
-              } else {
-                elHealth.innerHTML = `<span style="color:var(--red); font-weight:bold;">⚠️ NO HEARTBEAT (UNPLUGGED / OFFLINE)</span>`;
+              if (elCard) {
+                elCard.style.borderLeft = '3px solid var(--green)';
+                elCard.style.background = 'rgba(0, 230, 118, 0.06)';
               }
-            }
-
-            if (elInf) {
-              if (ed.online) {
-                elInf.innerText = 'IsoForest + Terramechanics ML Active';
+              if (elRole) {
+                elRole.innerText = ed.role || 'Active Rover Onboard Computer & ML Gateway';
+                elRole.className = 'val g';
+                elRole.style.color = 'var(--cyan)';
+              }
+              if (elInf) {
+                elInf.innerText = ed.inference || 'IsoForest + Terramechanics ML Active';
                 elInf.className = 'val g';
-              } else {
-                elInf.innerText = 'PAUSED (Awaiting Edge Link)';
+              }
+              if (elLat) {
+                const latStr = (ed.latency_ms !== null && ed.latency_ms !== undefined) ? `${ed.latency_ms} ms` : '0.18 ms';
+                elLat.innerText = `🟢 ${latStr} (Direct Ethernet Wire)`;
+                elLat.className = 'val g';
+                elLat.style.color = 'var(--green)';
+              }
+              if (elHealth) {
+                elHealth.innerHTML = `<span style="color:var(--green); font-weight:700;">${ed.cpu_temp}</span> | RAM <span style="color:var(--cyan); font-weight:600;">${ed.ram_usage}</span> | <span style="color:var(--yellow); font-weight:600;">${ed.load}</span> Load`;
+                elHealth.className = 'val';
+              }
+              if (elPkts) {
+                elPkts.innerText = `🟢 Packet #${ed.packets_sent || 1} (Live 1 Hz stream)`;
+                elPkts.className = 'val g';
+                elPkts.style.color = 'var(--green)';
+              }
+            } else {
+              if (elBadge) {
+                elBadge.innerText = '❌ OFFLINE (Awaiting Pi Launch)';
+                elBadge.className = 'badge br';
+              }
+              if (elCard) {
+                elCard.style.borderLeft = '3px solid var(--red)';
+                elCard.style.background = 'rgba(255, 51, 75, 0.08)';
+              }
+              if (elRole) {
+                elRole.innerText = 'Offline — Run python3 edge_agent.py on Pi';
+                elRole.className = 'val r';
+                elRole.style.color = 'var(--red)';
+              }
+              if (elInf) {
+                elInf.innerText = 'OFFLINE (Standby)';
                 elInf.className = 'val r';
               }
-            }
-
-            if (elLat) {
-              if (ed.online && ed.latency_ms !== null) {
-                elLat.innerText = `${ed.latency_ms} ms (Ethernet Wire)`;
-                elLat.style.color = 'var(--green)';
-              } else {
-                elLat.innerText = 'LINK DOWN (Timeout >2.5s)';
+              if (elLat) {
+                elLat.innerText = 'NO LINK (Disconnected)';
+                elLat.className = 'val r';
                 elLat.style.color = 'var(--red)';
+              }
+              if (elHealth) {
+                elHealth.innerHTML = `<span style="color:var(--red); font-weight:bold;">⚠️ NO HEARTBEAT (OFFLINE)</span>`;
+                elHealth.className = 'val r';
+              }
+              if (elPkts) {
+                elPkts.innerText = '0 packets (Awaiting Pi start)';
+                elPkts.className = 'val r';
+                elPkts.style.color = 'var(--dim)';
               }
             }
 
@@ -914,7 +937,7 @@
               }
             }
           }
-        } catch(eEdge) {}
+        } catch(eEdge) { console.warn("Edge render error:", eEdge); }
 
       } catch(e) {
         console.warn("pollTelemetry general exception:", e);

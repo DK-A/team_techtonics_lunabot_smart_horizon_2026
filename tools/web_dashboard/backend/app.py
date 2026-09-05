@@ -1476,28 +1476,32 @@ def get_telemetry():
     telemetry_node._prev_edge_online = edge_online
 
     raw_edge = getattr(telemetry_node, 'last_edge_health', None)
-    if edge_online and raw_edge:
+    if edge_online and raw_edge and raw_edge.get("online", True):
         edge_data = {
             "online": True,
             "status": "CONNECTED (LIVE PI 4B)",
             "device": raw_edge.get("device", "Raspberry Pi 4 Model B (Physical)"),
-            "cpu_temp": raw_edge.get("cpu_temp", "42.1 °C"),
-            "ram_usage": raw_edge.get("ram_usage", "18.4%"),
-            "load": raw_edge.get("load", "0.12"),
-            "role": "Physical Onboard Computer & ML Edge Gateway",
+            "cpu_temp": raw_edge.get("cpu_temp", "-- °C"),
+            "ram_usage": raw_edge.get("ram_usage", "--"),
+            "load": raw_edge.get("load", "--"),
+            "role": "Rover Onboard Computer (OBC) & Safety Bridge",
             "inference": raw_edge.get("inference", "Isolation Forest + Terramechanics ML Active"),
+            "packets_sent": raw_edge.get("packets_sent", 1),
+            "uptime_sec": raw_edge.get("uptime_sec", 0.0),
             "latency_ms": round((now_t - last_edge_time) * 1000, 1)
         }
     else:
         edge_data = {
             "online": False,
-            "status": "DISCONNECTED (LINK LOST)",
+            "status": "OFFLINE (Awaiting Pi Execution)",
             "device": "Raspberry Pi 4 Model B (Offline)",
             "cpu_temp": "OFFLINE",
             "ram_usage": "--",
             "load": "--",
-            "role": "Connection Timed Out (>2.5s)",
-            "inference": "Halted (Awaiting Reconnection)",
+            "role": "Offline — Run 'python3 edge_agent.py' on Pi",
+            "inference": "Standby (Offline)",
+            "packets_sent": 0,
+            "uptime_sec": 0,
             "latency_ms": None
         }
 
@@ -1533,13 +1537,16 @@ def download_edge_agent():
     return PlainTextResponse("# Edge agent script not found", status_code=404)
 
 
+@app.get("/run_edge.sh")
 @app.get("/run_edge_bridge.sh")
-def download_run_edge_bridge():
-    script_file = "/home/dk05/Desktop/SMART_HORIZON/LUNA_PRO/edge_pi/run_edge_bridge.sh"
+def download_run_edge():
+    script_file = "/home/dk05/Desktop/SMART_HORIZON/LUNA_PRO/edge_pi/run_edge.sh"
+    if not os.path.exists(script_file):
+        script_file = "/home/dk05/Desktop/SMART_HORIZON/LUNA_PRO/edge_pi/run_edge_bridge.sh"
     if os.path.exists(script_file):
         with open(script_file, "r") as f:
             return PlainTextResponse(f.read())
-    return PlainTextResponse("# run_edge_bridge.sh not found", status_code=404)
+    return PlainTextResponse("# run_edge.sh not found", status_code=404)
 
 
 @app.get("/edge_agent.service")
@@ -1557,8 +1564,14 @@ async def receive_edge_telemetry(request: Request):
         return {"success": False, "error": "ROS Node not initialized"}
     try:
         data = await request.json()
+        if not data.get("online", True):
+            telemetry_node.last_edge_health = None
+            telemetry_node._last_edge_health_time = 0.0
+            telemetry_node.log_xai("EDGE", "CRITICAL", "Raspberry Pi 4B Edge Agent terminated by operator (Ctrl+C). Rover motors locked in failsafe hold.")
+            return {"success": True, "status": "offline_acknowledged"}
+
         prev = getattr(telemetry_node, 'last_edge_health', None)
-        if not prev:
+        if not prev or not getattr(telemetry_node, '_prev_edge_online', False):
             telemetry_node.log_xai("MISSION", "SUCCESS", f"Physical Raspberry Pi 4B Edge Gateway handshake confirmed! Connected from {data.get('device', 'Pi 4B')}.")
         telemetry_node.last_edge_health = data
         telemetry_node._last_edge_health_time = time.time()
