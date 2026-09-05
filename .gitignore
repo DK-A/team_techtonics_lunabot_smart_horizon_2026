@@ -69,5 +69,7 @@ tools/web_dashboard/recordings/*.mp4
 tools/web_dashboard/recordings/*.webm
 tools/web_dashboard/database/recordings/*.mp4
 tools/web_dashboard/database/recordings/*.webm
+lunabot_assets/*.webm
 !tools/web_dashboard/recordings/.gitkeep
 !tools/web_dashboard/database/recordings/.gitkeep
+

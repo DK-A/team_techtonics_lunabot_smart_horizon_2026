@@ -38,6 +38,8 @@
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green);
            box-shadow: 0 0 8px var(--green); animation: blink 1.6s infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes pulseGlow { 0%{box-shadow:0 0 10px rgba(255,51,75,0.35);} 100%{box-shadow:0 0 26px rgba(255,51,75,0.85);} }
+
 
     /* ── MAIN LAYOUT: 72% Main Ops | 28% Sidebar ── */
     .dashboard { display: grid; grid-template-columns: 1fr 320px; gap: 12px; }
@@ -220,6 +222,26 @@
       <div id="v-header-pill" class="live-pill"><div class="dot"></div>TELEMETRY LIVE</div>
     </div>
   </header>
+ 
+  <!-- ❄️ CRITICAL SIMULATION & ROVER HARDWARE FREEZE BANNER -->
+  <div id="v-freeze-banner" style="display:flex; justify-content:space-between; align-items:center; background: linear-gradient(90deg, rgba(255, 51, 75, 0.95), rgba(180, 20, 40, 0.95)); border: 1px solid #ff7b90; border-radius: 8px; padding: 10px 18px; margin-bottom: 12px; color: #fff; box-shadow: 0 4px 20px rgba(255, 51, 75, 0.4); animation: pulseGlow 1.8s infinite alternate;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-size:1.4rem;">❄️</span>
+      <div>
+        <div style="font-size:0.86rem; font-weight:800; letter-spacing:0.8px; text-transform:uppercase;">
+          SIMULATION &amp; ROVER SYSTEMS FROZEN &bull; AWAITING RASPBERRY PI 4B FLIGHT COMPUTER
+        </div>
+        <div id="v-freeze-reason" style="font-size:0.75rem; opacity:0.92; font-family:monospace; margin-top:2px;">
+          Gazebo physics paused &bull; Motors locked in failsafe hold &bull; Awaiting Pi 4B online heartbeat
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="background:rgba(0,0,0,0.35); padding:6px 12px; border-radius:6px; font-family:monospace; font-size:0.75rem; border:1px solid rgba(255,255,255,0.2);">
+        Terminal on Pi: <strong style="color:var(--cyan);">python3 edge_pi/edge_agent.py</strong>
+      </span>
+    </div>
+  </div>
 
   <div class="dashboard">
 
@@ -483,6 +505,10 @@
 
     // ── Target Dispatch Helper ──
     async function dispatchTarget(x, y, label) {
+      if (window.isSimulationFrozen) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nThe simulation runs ONLY when the physical Raspberry Pi 4B flight computer is online.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to unlock rover navigation!");
+        return;
+      }
       // 1. Automatically update the input fields with the target coordinates
       const inpX = document.getElementById('customX');
       const inpY = document.getElementById('customY');
@@ -580,8 +606,12 @@
     async function toggleSimulation() {
       const btn = document.getElementById('simBtn');
       const msg = document.getElementById('simMsg');
-      btn.disabled = true;
       const targetState = !isPaused;
+      if (window.isSimulationFrozen && !targetState) {
+        alert("❄️ CANNOT RESUME SIMULATION\n\nSimulation runs ONLY when the physical Raspberry Pi 4B flight computer is online.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to unfreeze!");
+        return;
+      }
+      btn.disabled = true;
       msg.innerText = targetState ? "Pausing simulation..." : "Resuming simulation...";
 
       try {
@@ -930,7 +960,7 @@
                 hPill.style.background = 'rgba(0, 230, 118, 0.12)';
                 hPill.style.color = 'var(--green)';
               } else {
-                hPill.innerHTML = '<div class="dot" style="background:var(--red); box-shadow:0 0 8px var(--red);"></div>❌ PI 4B OFFLINE (LINK LOST)';
+                hPill.innerHTML = '<div class="dot" style="background:var(--red); box-shadow:0 0 8px var(--red);"></div>❌ PI 4B OFFLINE (SIM FROZEN)';
                 hPill.className = 'live-pill';
                 hPill.style.background = 'rgba(255, 51, 75, 0.20)';
                 hPill.style.color = 'var(--red)';
@@ -938,6 +968,54 @@
             }
           }
         } catch(eEdge) { console.warn("Edge render error:", eEdge); }
+
+        // 7. Dynamic Simulation Freeze & Resume Control
+        try {
+          const isFrozen = (d.simulation_frozen !== undefined) ? !!d.simulation_frozen : false;
+          window.isSimulationFrozen = isFrozen;
+
+          const freezeBanner = document.getElementById('v-freeze-banner');
+          const freezeReason = document.getElementById('v-freeze-reason');
+          if (freezeBanner) {
+            freezeBanner.style.display = isFrozen ? 'flex' : 'none';
+          }
+          if (freezeReason && d.freeze_reason) {
+            freezeReason.innerText = d.freeze_reason;
+          }
+
+          // Visual cue on map and camera feeds
+          const feeds = document.querySelectorAll('img.feed');
+          feeds.forEach(f => {
+            f.style.filter = isFrozen ? 'grayscale(45%) contrast(0.85) brightness(0.85)' : 'none';
+          });
+
+          // Disable/Enable Nav Buttons
+          const navBtns = document.querySelectorAll('.btn-target, .btn-abort');
+          navBtns.forEach(b => {
+            if (isFrozen) {
+              b.style.opacity = '0.45';
+              b.style.cursor = 'not-allowed';
+            } else {
+              b.style.opacity = '1.0';
+              b.style.cursor = 'pointer';
+            }
+          });
+
+          // Update Simulation Pause/Resume button
+          const simBtn = document.getElementById('simBtn');
+          const simMsg = document.getElementById('simMsg');
+          if (simBtn) {
+            if (isFrozen) {
+              simBtn.className = "paused";
+              simBtn.innerText = "❄️ SIMULATION FROZEN (PI OFFLINE)";
+              if (simMsg) simMsg.innerHTML = '<span style="color:var(--red); font-weight:700;">⚠️ Simulation frozen — Run edge_agent.py on Pi to unlock</span>';
+            } else {
+              simBtn.className = "running";
+              simBtn.innerText = "⏸ PAUSE SIMULATION";
+              if (simMsg) simMsg.innerHTML = '<span style="color:var(--green);">Gazebo physics active &bull; Pi 4B connected</span>';
+            }
+          }
+        } catch(eFreeze) { console.warn("Freeze render error:", eFreeze); }
 
       } catch(e) {
         console.warn("pollTelemetry general exception:", e);
@@ -948,6 +1026,10 @@
 
     let isPatrolRunning = false;
     async function toggleAutonomousPatrol() {
+      if (window.isSimulationFrozen && !isPatrolRunning) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nAutonomous Patrol requires the physical Raspberry Pi 4B flight computer.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to activate.");
+        return;
+      }
       const endpoint = isPatrolRunning ? '/api/patrol/stop' : '/api/patrol/start';
       try {
         const res = await fetch(endpoint, { method: 'POST' });
@@ -967,6 +1049,10 @@
     // ── Click Map → Dispatch Nav2 Waypoint ──
     const mapImg = document.getElementById('mapStream');
     mapImg.addEventListener('click', async (e) => {
+      if (window.isSimulationFrozen) {
+        alert("❄️ ROVER SYSTEM FROZEN\n\nThe simulation runs ONLY when the physical Raspberry Pi 4B flight computer is online.\n\nRun 'python3 edge_pi/edge_agent.py' on the Pi terminal to unlock click-to-navigate!");
+        return;
+      }
       const rect = mapImg.getBoundingClientRect();
       const normX = (e.clientX - rect.left) / rect.width;
       const normY = (e.clientY - rect.top) / rect.height;

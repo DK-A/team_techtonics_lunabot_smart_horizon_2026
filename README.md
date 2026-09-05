@@ -16,6 +16,7 @@
 
 ---
 
+[🎬 Media Gallery](#-mission-demonstration--operational-gallery) •
 [🚀 Quickstart](#-turnkey-deployment--quickstart-guide) •
 [🤖 Bot Specifications](#-bot-specifications) •
 [💡 Solutions & Novelty](#-project-solutions--core-technical-novelty) •
@@ -33,6 +34,41 @@
 The **Smart Horizon 2026 Lunar Autonomy Challenge** demands an uncrewed exploration rover capable of navigating the harsh lunar south pole regolith, detecting subsurface volatile gas deposits, avoiding extreme crater hazards, and surviving intermittent communication dropouts without ground operator intervention.
 
 LunaBot bridges high-fidelity physics simulation with a physical **Raspberry Pi 4 Model B Onboard Computer (OBC)**. By partitioning safety-critical inference to the edge and telemetry streaming to an industrial web ground station, LunaBot guarantees instantaneous hazard mitigation even during total Earth communication blackouts.
+
+---
+
+## 🎬 Mission Demonstration & Operational Gallery
+
+<table align="center" width="100%" style="border-collapse:collapse; border:1px solid #30363d;">
+  <tr>
+    <td width="50%" align="center" valign="top" style="padding:12px; background:#0d1117; border:1px solid #30363d;">
+      <h3>🤖 LunaBot 6-Wheel Rocker-Bogie Chassis</h3>
+      <img src="lunabot_assets/lunabot.png" alt="LunaBot Rocker-Bogie Rover Chassis" width="100%" style="border-radius:8px; border:1px solid #30363d; box-shadow:0 4px 16px rgba(0,0,0,0.6);"/>
+      <p align="left" style="margin-top:8px;">
+        <sub><b>Kinematic Architecture:</b> Ultra-lightweight tubular spaceframe ($101.0\text{ kg}$ total flight mass), passive rocker-bogie kinematic articulation with differential averaging bar, 6 in-hub brushless DC motors with continuous torque vectoring, $15\text{mm}$ chevron grousers, and ultra-low Center of Mass preventing rollover up to $38^\circ$.</sub>
+      </p>
+    </td>
+    <td width="50%" align="center" valign="top" style="padding:12px; background:#0d1117; border:1px solid #30363d;">
+      <h3>🖥️ Mission Control Ground Station HUD</h3>
+      <img src="lunabot_assets/ui.png" alt="LunaBot Mission Control HUD" width="100%" style="border-radius:8px; border:1px solid #30363d; box-shadow:0 4px 16px rgba(0,0,0,0.6);"/>
+      <p align="left" style="margin-top:8px;">
+        <sub><b>Autonomous HUD Operations:</b> Real-time 2D SLAM occupancy grid with dynamic curved NO-GO keepout overlays, 25m tactical LiDAR radar scope, 4-camera reconnaissance array (Stereo L/R, Rear hazard, SGBM 3D depth), live terramechanics regolith sinkage/slip gauges, and Explainable AI (XAI) Natural Language Copilot.</sub>
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center" valign="top" style="padding:16px; background:#0d1117; border:1px solid #30363d;">
+      <h3>🎥 Live Autonomous Exploration & Hardware-in-the-Loop Demonstration</h3>
+      <video src="lunabot_assets/demo.mp4" controls="controls" width="100%" style="max-height:480px; border-radius:8px; border:1px solid #30363d; background:#000; box-shadow:0 6px 20px rgba(0,0,0,0.7);"></video>
+      <p align="center" style="margin-top:8px;">
+        <sub><b>Direct Video Stream:</b> <a href="lunabot_assets/demo.mp4">▶️ <b>Download / Open Full HD Demonstration (MP4, H.264 Web-Optimized, 3m 22s)</b></a></sub>
+      </p>
+      <p align="left" style="margin-top:6px;">
+        <sub><b>Demonstrated Capabilities:</b> High-fidelity lunar south pole surface traversal (1.62 m/s² lunar gravity), automated crater rim keepout avoidance with smooth Bezier bypass trajectories, real-time hardware-in-the-loop Raspberry Pi 4B edge telemetry streaming, <b>sub-second fail-safe simulation &amp; motor freeze upon edge flight computer disconnect</b>, and explainable AI autonomous decision reasoning.</sub>
+      </p>
+    </td>
+  </tr>
+</table>
 
 ---
 
@@ -221,14 +257,26 @@ cd ~/Desktop/SMART_HORIZON/LUNA_PRO
 ```
 Open your browser at **`http://localhost:8080`** (or access from another device on the network at `http://10.42.0.1:8080`).
 
-### Step 3: Turnkey Raspberry Pi 4B Edge Service
-On your Raspberry Pi 4B terminal (`techtonics@techtonics:~/edge_pi $`), run this single auto-provisioning command:
+### Step 3: Raspberry Pi 4B Edge Gateway & Hardware-in-the-Loop Bringup
+
+#### Option A: Direct Terminal Execution (Recommended for Live Evaluation)
+Log into your physical Raspberry Pi 4B (`ssh techtonics@10.42.0.91`) and run the edge agent directly in the foreground:
+```bash
+cd ~/Desktop/SMART_HORIZON/LUNA_PRO/edge_pi
+python3 edge_agent.py
+# Alternatively: ./run_edge.sh
+```
+> [!IMPORTANT]
+> **Real-Time Simulation Freeze Architecture:**
+> 1. **Default State**: At startup, Mission Control initializes in **FROZEN** mode (`simulation_frozen: true`). Gazebo physics is paused via `gz.msgs.WorldControl` and rover drive motors are locked at 0.0 m/s.
+> 2. **Instant Unlock**: The moment `edge_agent.py` establishes its 1 Hz telemetry stream, the simulation **instantly unfreezes** (`pause: false`) and autonomous navigation/patrol unlocks.
+> 3. **Sub-Second Fail-Safe**: Pressing `Ctrl+C` in the Pi terminal or unplugging the Ethernet wire triggers the **10 Hz watchdog (<1.8s)**: Gazebo instantly pauses, the mission HUD alerts `❄️ ROVER SYSTEM FROZEN`, and all drives halt immediately.
+
+#### Option B: Persistent Systemd Auto-Start Service
+For autonomous uncrewed flight operations where the edge computer boots automatically on battery connection:
 ```bash
 curl -s http://10.42.0.1:8080/edge_agent.service -o /tmp/edge_agent.service && sudo mv /tmp/edge_agent.service /etc/systemd/system/edge_agent.service && sudo systemctl daemon-reload && sudo systemctl enable --now edge_agent
 ```
-- The service will automatically fetch `edge_agent.py`, configure execution rights, enable boot persistence, and stream real ARM CPU temperature and vitals to the mission control HUD at 1 Hz.
-- **Unplug Ethernet Cable**: The dashboard tile turns red with `❌ CONNECTION LOST / OFFLINE` within 2.5s.
-- **Re-plug Cable**: Telemetry reconnects automatically within 2.0s!
 
 ---
 

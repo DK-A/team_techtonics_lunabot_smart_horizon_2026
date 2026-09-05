@@ -239,6 +239,40 @@ class WebTelemetryNode(Node):
         self.last_edge_health = None
         self.create_subscription(String, '/edge/hardware_health', self.edge_health_cb, 10)
 
+        # Direct Rover Motor Publishers for Instant Safety Halt
+        self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.pub_cmd_raw = self.create_publisher(Twist, '/cmd_vel_raw', 10)
+
+        # ❄️ Simulation & Rover Freeze Control (Must run ONLY when Pi 4B is online)
+        self._freeze_lock = threading.Lock()
+        self.simulation_frozen = True
+        self.freeze_reason = "Awaiting physical Raspberry Pi 4B connection"
+        self._last_edge_health_time = 0.0
+        self._prev_edge_online = False
+
+        # Dedicated high-speed (10 Hz) watchdog thread for physical Pi connection & freeze
+        def _edge_watchdog_worker():
+            time.sleep(1.0)
+            self.set_simulation_freeze(True, "Awaiting initial Raspberry Pi 4B connection")
+            while rclpy.ok():
+                try:
+                    now = time.time()
+                    if self._last_edge_health_time > 0.0:
+                        if (now - self._last_edge_health_time) > 1.8:
+                            if not self.simulation_frozen:
+                                self.set_simulation_freeze(True, "Raspberry Pi 4B link lost / heartbeat timeout (>1.8s)")
+                            self.last_edge_health = None
+                            self._last_edge_health_time = 0.0
+                    else:
+                        if not self.simulation_frozen:
+                            self.set_simulation_freeze(True, "Awaiting Raspberry Pi 4B connection")
+                except Exception:
+                    pass
+                time.sleep(0.1)
+
+        self._edge_watchdog_thread = threading.Thread(target=_edge_watchdog_worker, daemon=True)
+        self._edge_watchdog_thread.start()
+
         # 🧠 Explainable AI (XAI) Live Decision Feed Ring Buffer
         self.xai_logs = []
         self._xai_lock = threading.Lock()
@@ -269,6 +303,7 @@ class WebTelemetryNode(Node):
 
         # Seed initial XAI system diagnostics
         self.log_xai("MISSION", "INFO", "LunaBot Mission Control online. Connected to Gazebo Sim 8 & ROS 2 Humble.")
+        self.log_xai("SIMULATION", "WARN", "❄️ Initial state: Simulation paused awaiting Raspberry Pi 4B flight computer online.")
         self.log_xai("SCIENCE", "INFO", "Isolation Forest ML loaded from isolation_forest_lunar_gas.pkl (Threshold: 0.5377).")
         self.log_xai("TERRA", "INFO", "Terramechanics Random Forest loaded from terramechanics_slip_classifier.pkl (99.86% Acc).")
         self.log_xai("SAFETY", "INFO", "Hazard Keepout Supervisor active with 3 restricted NO-GO zones.")
@@ -289,6 +324,52 @@ class WebTelemetryNode(Node):
             self.xai_logs.insert(0, entry)
             if len(self.xai_logs) > 60:
                 self.xai_logs.pop()
+
+    def set_simulation_freeze(self, freeze: bool, reason: str = ""):
+        """
+        Enforces that Gazebo simulation and rover mobility run ONLY when the
+        physical Raspberry Pi 4B is online. When Pi is offline, everything freezes.
+        """
+        with self._freeze_lock:
+            state_changed = (self.simulation_frozen != freeze)
+            self.simulation_frozen = freeze
+            self.freeze_reason = reason
+
+            # Call Gazebo pause/unpause service asynchronously in daemon thread
+            def _call_gz():
+                try:
+                    cmd = [
+                        "gz", "service", "-s", "/world/moon/control",
+                        "--reqtype", "gz.msgs.WorldControl",
+                        "--reptype", "gz.msgs.Boolean",
+                        "--timeout", "1000",
+                        "--req", f"pause: {'true' if freeze else 'false'}"
+                    ]
+                    subprocess.run(cmd, capture_output=True, text=True, timeout=1.8, env=dict(os.environ))
+                except Exception:
+                    pass
+
+            threading.Thread(target=_call_gz, daemon=True).start()
+
+            if freeze:
+                # Instantly halt physical/simulated motors
+                try:
+                    stop_cmd = Twist()
+                    if hasattr(self, 'cmd_vel_pub'):
+                        self.cmd_vel_pub.publish(stop_cmd)
+                    if hasattr(self, 'pub_cmd_raw'):
+                        self.pub_cmd_raw.publish(stop_cmd)
+                except Exception:
+                    pass
+                if self.nav_status in ("NAVIGATING", "EXECUTING"):
+                    self.nav_status = "FAILSAFE_HOLD (PI OFFLINE)"
+                if state_changed:
+                    self.log_xai("SIMULATION", "CRITICAL", f"❄️ ROVER & SIMULATION FROZEN: {reason}. All drive motors locked.")
+            else:
+                if self.nav_status == "FAILSAFE_HOLD (PI OFFLINE)":
+                    self.nav_status = "IDLE"
+                if state_changed:
+                    self.log_xai("SIMULATION", "SUCCESS", f"⚡ SIMULATION UNFROZEN: Physical Raspberry Pi 4B online. Autonomous systems activated.")
 
     def get_current_mission_activity(self):
         now = time.time()
@@ -1455,9 +1536,10 @@ def get_telemetry():
             "traction_mitigation_active": (slip > 0.50)
         }
 
-    # Instant Watchdog for Physical Raspberry Pi 4B Connection (Timeout: 2.5s)
+    # Instant Watchdog for Physical Raspberry Pi 4B Connection (Timeout: 1.8s)
     last_edge_time = getattr(telemetry_node, '_last_edge_health_time', 0.0)
-    edge_online = (now_t - last_edge_time) < 2.5 and last_edge_time > 0.0
+    is_frozen = getattr(telemetry_node, 'simulation_frozen', True)
+    edge_online = (not is_frozen) and ((now_t - last_edge_time) < 1.8) and (last_edge_time > 0.0)
 
     # Trigger XAI alerts on connection state changes
     prev_online = getattr(telemetry_node, '_prev_edge_online', None)
@@ -1472,7 +1554,7 @@ def get_telemetry():
                         telemetry_node.cmd_vel_pub.publish(Twist())
                 except Exception:
                     pass
-            telemetry_node.log_xai("EDGE", "CRITICAL", "Physical Raspberry Pi 4B Edge Gateway connection LOST! Ethernet link unplugged or heartbeat timeout (>2.5s). Drive motors locked in failsafe hold.")
+            telemetry_node.log_xai("EDGE", "CRITICAL", "Physical Raspberry Pi 4B Edge Gateway connection LOST! Ethernet link unplugged or heartbeat timeout (>1.8s). Drive motors locked in failsafe hold.")
     telemetry_node._prev_edge_online = edge_online
 
     raw_edge = getattr(telemetry_node, 'last_edge_health', None)
@@ -1524,6 +1606,8 @@ def get_telemetry():
         "xai_logs": getattr(telemetry_node, 'xai_logs', [])[:25],
         "patrol_active": getattr(telemetry_node, 'patrol_active', False),
         "patrol_index": getattr(telemetry_node, 'patrol_index', 0),
+        "simulation_frozen": getattr(telemetry_node, 'simulation_frozen', True),
+        "freeze_reason": getattr(telemetry_node, 'freeze_reason', 'Awaiting Raspberry Pi 4B connection'),
         "edge_device": edge_data
     }
  
@@ -1567,17 +1651,19 @@ async def receive_edge_telemetry(request: Request):
         if not data.get("online", True):
             telemetry_node.last_edge_health = None
             telemetry_node._last_edge_health_time = 0.0
-            telemetry_node.log_xai("EDGE", "CRITICAL", "Raspberry Pi 4B Edge Agent terminated by operator (Ctrl+C). Rover motors locked in failsafe hold.")
-            return {"success": True, "status": "offline_acknowledged"}
+            telemetry_node.set_simulation_freeze(True, "Raspberry Pi 4B Edge Agent terminated by operator (Ctrl+C)")
+            return {"success": True, "status": "offline_acknowledged", "simulation_frozen": True}
 
         prev = getattr(telemetry_node, 'last_edge_health', None)
         if not prev or not getattr(telemetry_node, '_prev_edge_online', False):
             telemetry_node.log_xai("MISSION", "SUCCESS", f"Physical Raspberry Pi 4B Edge Gateway handshake confirmed! Connected from {data.get('device', 'Pi 4B')}.")
         telemetry_node.last_edge_health = data
         telemetry_node._last_edge_health_time = time.time()
-        return {"success": True}
+        telemetry_node.set_simulation_freeze(False, "Raspberry Pi 4B online heartbeat received")
+        return {"success": True, "simulation_frozen": False}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 
 @app.get("/api/xai_logs")
@@ -1804,6 +1890,8 @@ def validate_and_clamp_goal(wx, wy, map_msg, zones=None):
 async def send_goal(request: Request):
     if not telemetry_node:
         return {"success": False, "error": "ROS Node not initialized"}
+    if getattr(telemetry_node, 'simulation_frozen', True):
+        return {"success": False, "error": "Rover systems frozen: Connect physical Raspberry Pi 4B to enable autonomous navigation."}
     try:
         data = await request.json()
         raw_x = float(data.get("x", 0.0))
@@ -1874,6 +1962,8 @@ async def teleop_control(request: Request):
     """Direct manual drive endpoint with clean positive-forward convention"""
     if not telemetry_node:
         return {"success": False}
+    if getattr(telemetry_node, 'simulation_frozen', True):
+        return {"success": False, "error": "Rover systems frozen: Connect physical Raspberry Pi 4B to drive."}
     try:
         data = await request.json()
         vx = float(data.get("vx", 0.0))
@@ -1906,17 +1996,22 @@ async def sim_control(request: Request):
     try:
         data = await request.json()
         pause = bool(data.get("pause", False))
-        req_str = f"pause: {'true' if pause else 'false'}"
-        cmd = [
-            "gz", "service", "-s", "/world/moon/control",
-            "--reqtype", "gz.msgs.WorldControl",
-            "--reptype", "gz.msgs.Boolean",
-            "--timeout", "1500",
-            "--req", req_str
-        ]
-        env_dict = dict(os.environ)
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=2.5, env=env_dict)
-        return {"success": True, "paused": pause, "output": res.stdout.strip()}
+        if not pause and getattr(telemetry_node, 'simulation_frozen', True) and getattr(telemetry_node, '_last_edge_health_time', 0.0) == 0.0:
+            return {"success": False, "error": "Cannot unpause: Physical Raspberry Pi 4B is offline. Start edge agent on the Pi first."}
+        if telemetry_node:
+            telemetry_node.set_simulation_freeze(pause, "Operator simulation toggle")
+        else:
+            req_str = f"pause: {'true' if pause else 'false'}"
+            cmd = [
+                "gz", "service", "-s", "/world/moon/control",
+                "--reqtype", "gz.msgs.WorldControl",
+                "--reptype", "gz.msgs.Boolean",
+                "--timeout", "1500",
+                "--req", req_str
+            ]
+            env_dict = dict(os.environ)
+            subprocess.run(cmd, capture_output=True, text=True, timeout=2.5, env=env_dict)
+        return {"success": True, "paused": pause}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -2385,6 +2480,26 @@ HTML_PAGE = """<!DOCTYPE html>
       <div id="v-header-pill" class="live-pill"><div class="dot"></div>TELEMETRY LIVE</div>
     </div>
   </header>
+ 
+  <!-- ❄️ CRITICAL SIMULATION & ROVER HARDWARE FREEZE BANNER -->
+  <div id="v-freeze-banner" style="display:flex; justify-content:space-between; align-items:center; background: linear-gradient(90deg, rgba(255, 51, 75, 0.95), rgba(180, 20, 40, 0.95)); border: 1px solid #ff7b90; border-radius: 8px; padding: 10px 18px; margin-bottom: 12px; color: #fff; box-shadow: 0 4px 20px rgba(255, 51, 75, 0.4); animation: pulseGlow 1.8s infinite alternate;">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span style="font-size:1.4rem;">❄️</span>
+      <div>
+        <div style="font-size:0.86rem; font-weight:800; letter-spacing:0.8px; text-transform:uppercase;">
+          SIMULATION &amp; ROVER SYSTEMS FROZEN &bull; AWAITING RASPBERRY PI 4B FLIGHT COMPUTER
+        </div>
+        <div id="v-freeze-reason" style="font-size:0.75rem; opacity:0.92; font-family:monospace; margin-top:2px;">
+          Gazebo physics paused &bull; Motors locked in failsafe hold &bull; Awaiting Pi 4B online heartbeat
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="background:rgba(0,0,0,0.35); padding:6px 12px; border-radius:6px; font-family:monospace; font-size:0.75rem; border:1px solid rgba(255,255,255,0.2);">
+        Terminal on Pi: <strong style="color:var(--cyan);">python3 edge_pi/edge_agent.py</strong>
+      </span>
+    </div>
+  </div>
 
   <div class="dashboard">
 
@@ -2598,16 +2713,17 @@ HTML_PAGE = """<!DOCTYPE html>
       </div>
 
       <!-- 📟 Raspberry Pi 4B Edge Computing & Bridge Telemetry -->
-      <div id="v-edge-card" class="tel-card" style="border-left: 3px solid var(--cyan); transition: all 0.3s ease;">
+      <div id="v-edge-card" class="tel-card" style="border-left: 3px solid var(--red); background: rgba(255, 51, 75, 0.05); transition: all 0.3s ease;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <h2 style="margin-bottom:0;">📟 RPi 4B Edge Gateway</h2>
-          <span id="v-edge-badge" class="badge br" style="font-size:0.65rem;">AWAITING PI LINK</span>
+          <span id="v-edge-badge" class="badge br" style="font-size:0.65rem;">🔴 OFFLINE (Run 'python3 edge_agent.py')</span>
         </div>
         <div class="row"><span class="lbl">Hardware Architecture</span><span class="val c">ARM Cortex-A72 (Pi 4B)</span></div>
-        <div class="row"><span class="lbl">Edge Role</span><span class="val b" id="v-edge-role" style="font-size:0.72rem; color:var(--cyan);">Physical OBC &amp; ML Edge</span></div>
-        <div class="row"><span class="lbl">Onboard Inference</span><span class="val g" id="v-edge-ml">IsoForest + Terramechanics</span></div>
-        <div class="row"><span class="lbl">Bridge Link Latency</span><span class="val y" id="v-edge-latency">0.18 ms (Ethernet)</span></div>
-        <div class="row"><span class="lbl">Edge CPU Health</span><span class="val c" id="v-edge-health">-- | RAM -- | -- Load</span></div>
+        <div class="row"><span class="lbl">Edge Role</span><span class="val r" id="v-edge-role" style="font-size:0.72rem; color:var(--red);">Offline — Run 'python3 edge_agent.py' on Pi</span></div>
+        <div class="row"><span class="lbl">Onboard Inference</span><span class="val r" id="v-edge-ml">OFFLINE (Standby)</span></div>
+        <div class="row"><span class="lbl">Bridge Link Latency</span><span class="val r" id="v-edge-latency">NO LINK (Disconnected)</span></div>
+        <div class="row"><span class="lbl">Edge CPU Health</span><span class="val r" id="v-edge-health">OFFLINE (-- °C | RAM -- | -- Load)</span></div>
+        <div class="row"><span class="lbl">Telemetry Stream</span><span class="val r" id="v-edge-packets">0 packets received</span></div>
       </div>
 
       <!-- Active Safety Zones -->
